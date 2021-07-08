@@ -1,7 +1,0 @@
-[Unit]
-Description=Download Google Drive data and after duplicating, delete the image download dir
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/bash /home/trossber/bin/gdrive-siphon.sh
-Restart=no
