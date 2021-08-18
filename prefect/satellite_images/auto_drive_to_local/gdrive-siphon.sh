@@ -1,17 +1,19 @@
 #!/bin/bash
 set -euxo pipefail
 
-GDRIVE_DIR="/home/shannon/Dokumente/Dokumente/studium/ASA/Projekt/SatelliteImage__GEE/correlation/GoogleDrive/"
-GDRIVE_SYPHON="/run/media/shannon/TOSHIBA/sentinel"
+GDRIVE_DIR="/run/user/1003/gvfs/google-drive:host=gmx.de,user=gnila"
+#"/home/shannon/Dokumente/Dokumente/studium/ASA/Projekt/SatelliteImage__GEE/correlation/GoogleDrive/"
+GDRIVE_SYPHON="/mnt/datadisk/sciebo/DIS22/Data_Acquisition/Sentinel2"
+#"/run/media/shannon/TOSHIBA/sentinel"
 
 DOWNLOAD_DIR=sentinel
 
 cd $GDRIVE_DIR
 # run grive
-grive 
+grive -a
 
 # copy files to siphon
-rsync -a $GDRIVE_DIR $GDRIVE_SYPHON
+gsync -a $GDRIVE_DIR $GDRIVE_SYPHON
 
 # delete download dir
 TIF_FILES_PATTERN=$GDRIVE_DIR/$DOWNLOAD_DIR/*.tif
