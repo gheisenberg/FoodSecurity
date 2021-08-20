@@ -9,7 +9,7 @@ GDRIVE_SYPHON="/mnt/datadisk/sciebo/DIS22/Data_Acquisition/Sentinel2"
 DOWNLOAD_DIR=sentinel
 
 cd $GDRIVE_DIR
-# run grive
+# run grive - synchronizes google drive?
 grive -a
 
 # copy files to siphon
