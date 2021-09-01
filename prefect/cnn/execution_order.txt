@@ -1,0 +1,14 @@
+The programs given in Github should be executed in the following way:
+
+1. satellite_images_gee.ipynb 
+    
+    a) If needed (for downloading images to local desktop and deleting them on the Google Drive): gdrive-siphon.timer (which starts gdrive-siphon.service and hence, gdrive-siphon.sh)
+
+2. Sorting_sentinel-img_into_zips.ipynb 
+
+3. creating_water_source_files.ipynb (Please note that you can already start this program as soon as the csv-files where created (and sorted into before and after 2013 survey) in the program satellite_images_gee.ipynb)
+
+4. Get_corresponding_GE_HR_survey_files.ipynb
+
+5. CNN_urban.ipynb
+
