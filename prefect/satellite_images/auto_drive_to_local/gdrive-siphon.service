@@ -3,5 +3,5 @@ Description=Download Google Drive data and after duplicating, delete the image d
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/bash /home/trossber/bin/gdrive-siphon.sh
+ExecStart=/mnt/datadisk/shannon/get_sentinel/gdrive-siphon.sh
 Restart=no
