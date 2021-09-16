@@ -1,14 +1,40 @@
 The programs given in Github should be executed in the following way:
 
-1. satellite_images_gee.ipynb 
+1. 
+Input: Geo-data ZIP-Files (Folder? Yvonne fragen)
+
+satellite_images_gee.ipynb 
     
     a) If needed (for downloading images to local desktop and deleting them on the Google Drive): gdrive-siphon.timer (which starts gdrive-siphon.service and hence, gdrive-siphon.sh)
 
-2. Sorting_sentinel-img_into_zips.ipynb 
+    Output: S2-imgs
+DBF-Files of every survey to create:
+CSV-files all Surveys
+Sentinel_done 
 
-3. creating_water_source_files.ipynb (Please note that you can already start this program as soon as the csv-files where created (and sorted into before and after 2013 survey) in the program satellite_images_gee.ipynb)
+2. Input: S2-folders/Imgs
 
-4. Get_corresponding_GE_HR_survey_files.ipynb
+Sorting_sentinel-img_into_zips.ipynb 
 
-5. CNN_urban.ipynb
+Output: ZIP-files per survey
 
+3. 
+Input: DHS-survey ZIPs, CSV-file Geodaten (1)
+
+creating_water_source_files.ipynb (Please note that you can already start this program as soon as the csv-files where created (and sorted into before and after 2013 survey) in the program satellite_images_gee.ipynb)
+
+Output: CSV-files (surveys)
+CSV-file all surveys (Label)
+
+4. Input: CSV-files (1+3)
+
+Get_corresponding_GE_HR_survey_files.ipynb
+
+Output: CSV-file (connection between geolaction files + survey-files)
+
+5. Input: S2-imgs
+CSV-file (3, 4)
+
+CNN_urban.ipynb
+
+Output: Model-output
