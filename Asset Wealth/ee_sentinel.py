@@ -7,6 +7,7 @@ Created on Thu Aug 19 10:49:05 2021
 """
 import ee
 import geemap
+import json
 import os
 import functools
 from zipfile import ZipFile
@@ -47,12 +48,14 @@ def bounding_box(loc, urban_rural, urban_radius, rural_radius):
     '''
     if urban_rural == 0 or urban_rural == '0':
         size = urban_radius
+        ur = 'u'
     else:
         size = rural_radius
+        ur = 'r'
 
     intermediate_buffer = loc.buffer(size)  # buffer radius, half your box width in m
     intermediate_box = intermediate_buffer.bounds()  # Draw a bounding box around the circle
-    return (intermediate_box)
+    return (intermediate_box, ur)
 
 
 # Masking of clouds
@@ -86,8 +89,15 @@ def maskEdges(s2_img):
     '''
     return s2_img.updateMask(s2_img.select('B8A').mask().updateMask(s2_img.select('B9').mask()))
 
+def truncate(f, n):
+    '''Truncates/pads a float f to n decimal places without rounding'''
+    s = '{}'.format(f)
+    if 'e' in s or 'E' in s:
+        return '{0:.{1}f}'.format(f, n)
+    i, p, d = s.partition('.')
+    return '.'.join([i, (d+'0'*n)[:n]])
 
-def get_image(cluster, survey_name, urban_radius, rural_radius, MAX_CLOUD_PROBABILITY):
+def get_image(cluster, survey_name, urban_radius, rural_radius, country_code, MAX_CLOUD_PROBABILITY):
     '''
 
     Parameters
@@ -103,21 +113,22 @@ def get_image(cluster, survey_name, urban_radius, rural_radius, MAX_CLOUD_PROBAB
     s2Clouds = ee.ImageCollection('COPERNICUS/S2_CLOUD_PROBABILITY')
 
     # Get time span
-    year_uncut = str(cluster["SURVEY_YEAR"])
-    year = year_uncut[:year_uncut.rfind('.')]
+    year = cluster["SURVEY_YEAR"]
     if int(year) < 2016:
         START_DATE = ee.Date('2015-06-01')
         END_DATE = ee.Date('2016-07-01')
+        date_range = '20150601-20160701'
     else:
         START_DATE = ee.Date(year + '-01-01')
         END_DATE = ee.Date(year + '-12-31')
+        date_range = str(year)+'0101-'+str(year)+'1231'
 
     # Point of interest (longitude, latidude)
     lat_float = float(cluster["LATNUM"])
     lon_float = float(cluster["LONGNUM"])
     loc = ee.Geometry.Point([lon_float, lat_float])
     # Region of interest
-    region = bounding_box(loc, cluster['URBAN_RURA'], urban_radius, rural_radius)
+    region, ur = bounding_box(loc, cluster['URBAN_RURA'], urban_radius, rural_radius)
     cluster_no = int(round(float(cluster["DHSCLUST"]), 0))
     # Filter input collections by desired data range and region.
     # criteria = ee.Filter.And(ee.Filter.bounds(region), ee.Filter.date(START_DATE, END_DATE))
@@ -141,7 +152,33 @@ def get_image(cluster, survey_name, urban_radius, rural_radius, MAX_CLOUD_PROBAB
     # Saving location/directory
     # out_dir = os.path.join(survey_dir, cluster["ID-cluster"]+'.tif')
     # geemap.ee_export_image(s2CloudMasked, filename=out_dir, scale=10)
-    filename = survey_name + '_' + str(cluster_no)
+
+    '''
+    Latitude_Longitude-begin-end-country_r/u_sidelength
+Koordinaten: 4 Nachkommastellen 
+Datumsformat: YYYYMMDD 
+Land: Offizielle 3 Ziffern AbkÃ¼rzung
+Rural und Urban: durch u bzw r
+Side length: SeitenlÃ¤nge (GrÃ¶ÃŸe) der Kachel in km mit einer Nachkommastelle 
+Beispiel:
+-33.34546_-25.6345-20210101-20211231_moz_u_2.0.tif
+'''
+    print(country_code)
+    if ur == 'u':
+        filename = str(truncate(lat_float, 4))+ '_' + \
+                   str(truncate(lon_float,4))+'_'+ \
+                   str(date_range) + '_' + \
+                   str(country_code) + '_' + \
+                   ur + '_' + \
+                   str(float(urban_radius/1000))
+    else:
+        filename = str(truncate(lat_float, 4))+'_'+ \
+                   str(truncate(lon_float,4))+'_'+\
+                   str(date_range) + '_' + \
+                   str(country_code) + '_' + \
+                   ur + '_' + \
+                   str(float(rural_radius/1000))
+    print(filename)
     task = ee.batch.Export.image.toDrive(**{
         'image': s2CloudMasked,
         'description': filename,
@@ -160,7 +197,7 @@ def get_survey_images(file_dir, survey_name, urban_radius, rural_radius, MAX_CLO
 
     Parameters
     ----------
-    file_dir(str): path to directory where csv files ares stored
+    file_dir(str): path to survey csv file
     survey_name(str): name of the survey (COUNTRY_YEAR)
     urban_radius(int): radius around coordinates for urban regions in meter
     rural_radius(int): radius around coordinates for rural regions in meter
@@ -171,12 +208,14 @@ def get_survey_images(file_dir, survey_name, urban_radius, rural_radius, MAX_CLO
         dict_reader = DictReader(read_obj)
         # get a list of dictionaries from dct_reader
         clusters = list(dict_reader)
-    for cluster in clusters:
-        loc = get_image(cluster, survey_name, urban_radius, rural_radius, MAX_CLOUD_PROBABILITY)
-        start = 0
-        if float(cluster["DHSCLUST"]) % 50 == 0:
-            download_local(os.path.join(img_dir, survey_name))
-    download_local(os.path.join(img_dir, survey_name))
+        with open('./country_code_mapping.json', 'r') as fp:
+            country_code_map = json.load(fp)
+        country_code = country_code_map[clusters[0]['COUNTRY']]
+        for cluster in clusters:
+            loc = get_image(cluster, survey_name, urban_radius, rural_radius, country_code, MAX_CLOUD_PROBABILITY)
+            if float(cluster["DHSCLUST"]) % 50 == 0:
+                download_local(os.path.join(img_dir, survey_name))
+        download_local(os.path.join(img_dir, survey_name))
 
 
 def download_local(survey_dir):
@@ -191,10 +230,13 @@ def download_local(survey_dir):
 
     '''
     # folder which want to download from Drive
-    folder_id = '1bUqcyvGfc9RW26rMsX-YlnZh03czTKo7'
+    folder_id = '1Iin2ogx1qjFNNkuLWQTGMqJd-n_CQGae'
 
     if survey_dir[-1] != '/':
         survey_dir = survey_dir + '/'
+
+    if not os.path.exists(survey_dir):
+        os.mkdir(survey_dir)
 
     file_list = drive.ListFile({'q': "'{}' in parents and trashed=false".format(folder_id)}).GetList()
     for i, file1 in enumerate(sorted(file_list, key=lambda x: x['title']), start=1):
@@ -207,12 +249,25 @@ def download_local(survey_dir):
             count = 1
             while os.path.exists(survey_dir + title):
                 title = title.split('.')[0] + '_' + str(count) + '.tif'
+                count += 1
             file1.GetContentFile(survey_dir + title)
             file1.Delete()
 
 
 # Main functions for getting the sentinel images; here: only the directory for each survey is created
 def sentinel_img_survey(img_dir, csv_dir, sentinel_done, urban_radius, rural_radius, MAX_CLOUD_PROBABILITY):
+    '''
+
+    Parameters
+    ----------
+    img_dir(str): path to Directory where the sentinel images are stored
+    csv_dir(str): Directory where the dhs csv files are stored
+    sentinel_done(str): filepath for file to document for which surveys satellite images were are already downloaded
+    urban_radius(int): radius around coordinates for urban regions in meter
+    rural_radius(int): radius around coordinates for rural regions in meter
+    MAX_CLOUD_PROBABILITY(int): %
+
+    '''
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
 
@@ -257,7 +312,7 @@ csv_dir = os.path.join(zip_dir, "gps_csv")
 # if directly to local computer
 # img_dir = os.path.join(csv_dir, "tif_data")
 # Directory where the final survey zips containing the sentinel images are stores
-img_dir = '/home/stoermer/Sentinel/Sentinel_zip'
+img_dir = '/home/stoermer/Sentinel/Sentinel_zip/'
 # Directory to txt files which contains all surveys where the images were already retrieved
 sentinel_done = os.path.join(zip_dir, "sentinel_done.txt")
 
