@@ -49,8 +49,8 @@
 	$host= '139.6.160.28';
 	$db = 'raw_data_db';
 	//$db = 'results_db';
-	$user = 'gheisenberg';
-	$password = 'kjaAH34!67Jse';
+	$user = 'username'; // add your own user
+	$password = 'xxx'; // add your own pw
 	
 	try {
 	$dsn = "pgsql:host=$host;port=5432;dbname=$db;";
