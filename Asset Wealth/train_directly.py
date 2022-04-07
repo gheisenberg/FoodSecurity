@@ -1,139 +1,183 @@
-from vvg19 import VVG19_hyperspectral
-from data_utils import generator, calc_mean, calc_std
-
-from functools import partial
-
-import tensorflow as tf
-from tensorflow.data import Dataset
-from tensorflow.keras import optimizers
-
-import pandas as pd
 import os
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+from data_utils import generator, create_splits
+import matplotlib.pyplot as plt
+from functools import partial
+from operator import itemgetter
+import pandas as pd
 import numpy as np
 
+import keras
+import tensorflow as tf
+from tensorflow.data import Dataset
+from tensorflow.keras import optimizers, models
+from sklearn.model_selection import KFold
 
-def main(img_dir: str, subset: bool, input_height: int, input_width: int,
-         channels: list, channel_size: int, clipping_values: list, batch_size: int):
+# import models
+from vvg19 import VVG19_hyperspectral
+from resnet50 import ResNet50_hyperspectral
+
+import wandb
+from wandb.keras import WandbCallback
+
+
+def main(img_dir: str, csv_path: str, model_name:str, k: int, input_height: int, input_width: int, img_source: str, urban_rural: str,
+         channels: list, channel_size: int, clipping_values: list, batch_size: int, epochs: int, subset:bool):
+    # subset: bool, clipping_values: list, channels: list,
     '''
 
     Args:
         img_dir (str): Path to image data
+        csv_path (str): Path to cluster csv files
+        model_name (str): one of ['vgg19', 'resnet50'] to choose which model is used
+        k (int): number of folds for cross validation
         subset (bool): Whether or not to use a subset to test the process
         input_height (int): pixel height of input
         input_width (int): pixel width of input
-        channels (list):  Channels to use; [] if all channels are to be used
+        img_source (str): one of ['s2', 'viirs'] to choose whether sentinel2 or viirs (nightlight) data is used
+        urban_rural (str): on of ['u','r','ur'] to choose whether only urban/rural clusters or all data is used
+        channels (list):  Channels to use; [] to use all channels
         channel_size (int): Number of channels (3 for RGB, 13 for all channels)
+                            !Nightlight channel is transformed to 3 channels for model compatibility
         clipping_values (list): interval of min and max values for clipping
         batch_size (int): Size of training batches
+        epochs (int): Number of Training Epochs
+        subset (bool): Whether or not to use a subset (for testing)
 
     Returns:
 
     '''
+    X_train_val, X_test, y_train_val, y_test = create_splits(img_dir, csv_path, urban_rural, subset)
+    kf = KFold(n_splits=k, random_state=None, shuffle=False)
+    for fold, (train_index, val_index) in enumerate(kf.split(X_train_val)):
+        print(f'Fold: {fold}')
+        wandb.init(project="Asset_Wealth", entity="piastoermer", dir='/mnt/datadisk/data/Sentinel2/',
+                   group=f'{model_name}_pretrained_model_{urban_rural}_{img_source}', job_type='train',
+                   name=f'{model_name}_pretrained_model_{urban_rural}_{img_source}_fold_{fold}')
+        config = wandb.config  # Config is a variable that holds and saves hyperparameters and inputs
+        config.learning_rate = 2e-4
+        config.batch_size = batch_size
+        config.epochs = epochs
+        config.img_width = input_width
+        config.img_height = input_height
+        config.model_name = 'vgg19'
+        config.pretrain_weights = 'imagenet'
+        config.urban_rural = urban_rural  # 'all'
+        config.image_source = img_dir
+        config.loss = 'mean_squared_error'
+        config.metrics = ['mean_squared_error',
+                          'mean_absolute_error',
+                          'mean_absolute_percentage_error']
 
-    ## get data and labels
-    if subset:
-        train_dir = os.path.join(img_dir, 'subset_train')
-        val_dir = os.path.join(img_dir, 'subset_val')
-        test_dir = os.path.join(img_dir, 'subset_test')
-        label_df = pd.read_csv(os.path.join(img_dir, 'subset_labels.csv'))
-    else:
-        train_dir = os.path.join(img_dir, 'train')
-        val_dir = os.path.join(img_dir, 'val')
-        test_dir = os.path.join(img_dir, 'test')
-        label_df = pd.read_csv(os.path.join(img_dir, 'labels.csv'))
 
-    ## calculate means and standard deviations per channel
-    means = calc_mean(train_dir, input_height, input_width, clipping_values, channels)
-    stds = calc_std(means, train_dir, input_height, input_width, clipping_values, channels)
-    print(means, stds)
-    print('Calculated mean and standard deviation for each channel (for training set)')
+        # Load VGG19 model
 
-    # set up generators for model training
+        X_train, X_val = list(itemgetter(*train_index)(X_train_val)), list(itemgetter(*val_index)(X_train_val))
+        y_train, y_val = y_train_val[train_index], y_train_val[val_index]
+        print(f'Training size: {len(X_train)} \n Validation size: {len(X_val)} \n Test Size: {len(X_test)}')
+        # generate datasets
+        train_generator_func = partial(generator, img_dir, X_train, y_train, batch_size, input_height, input_width,
+                                       clipping_values, channel_size, channels)
 
-    training_generator = generator(x_dir=train_dir, labels=label_df, batch_size=batch_size, means=means, stds=stds,
-                                   input_height=input_height, input_width=input_width, clipping_values=clipping_values,
-                                   channels=channels, channel_size=channel_size)
-    # Check if shape is correct
-    print('Created x and y for training data')
-    for data_batch, labels_batch in training_generator:
-        print('This is the shape of the training data batch:', data_batch.shape)
-        print('This is the shape of the training label batch:', labels_batch.shape)
-        samples = data_batch
-        break
+        train_ds = Dataset.from_generator(generator=train_generator_func,
+                                          output_types=(tf.float64, tf.float64),
+                                          output_shapes=((batch_size, input_width, input_height, channel_size),
+                                                         (batch_size,)),
+                                          )
+         # This part generates the validation generator for the NN
+        val_generator_func = partial(generator, img_dir, X_val, y_val, batch_size, input_height, input_width,
+                                     clipping_values, channel_size, channels)
 
-    validation_generator = generator(x_dir=val_dir, labels=label_df, batch_size=batch_size, means=means, stds=stds,
-                                     input_height=input_height, input_width=input_width,
-                                     clipping_values=clipping_values,
-                                     channels=channels, channel_size=channel_size)
+        val_ds = Dataset.from_generator(generator=val_generator_func,
+                                        output_types=(tf.float64, tf.float32),
+                                        output_shapes=((batch_size, input_width, input_height, channel_size),
+                                                       (batch_size,)),
+                                        )
 
-    print('The minimum value is', np.min(samples))
-    print('The maximum value is', np.max(samples))
-    print('The mean is', np.mean(samples))
-    print('The standard deviation is', np.std(samples))
 
-    # plt.hist(samples.flatten(), bins=100)
-    # plt.show()
+        # adjust to hyperspectral input
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        print("Num GPUs Available: ", len(gpus))
+        mirrored_strategy = tf.distribute.MirroredStrategy(devices=["/gpu:0", "/gpu:1",
+                                                                    "/gpu:2"])
+        with mirrored_strategy.scope():
+            if model_name == 'vgg19':
+                hyperspectral_model_obj = VVG19_hyperspectral(img_w=input_width,
+                                                              img_h=input_height,
+                                                              channels=channel_size
+                                                              )
+                model = hyperspectral_model_obj.load_vgg19()
+            elif model_name == 'resnet50':
+                hyperspectral_model_obj = ResNet50_hyperspectral(img_w=input_width,
+                                                                 img_h=input_height,
+                                                                 channels=channel_size
+                                                                 )
+                model = hyperspectral_model_obj.load_resnet50()
+            model.compile(optimizer=optimizers.RMSprop(learning_rate=0.0001),
+                          loss='mean_squared_error', metrics=[tf.keras.metrics.MeanSquaredError(),
+                                                              tf.keras.metrics.MeanAbsoluteError(),
+                                                              tf.keras.metrics.MeanAbsolutePercentageError()])
+        print('Start Model Training')
+        # Fit and train model
+        history = model.fit(
+            train_ds,
+            validation_data=val_ds,
+            epochs=epochs,
+            verbose=1,
+            callbacks=[
+                WandbCallback(),
+                tf.keras.callbacks.EarlyStopping(
+                    monitor="val_loss",
+                    min_delta=0,
+                    patience=10,
+                    verbose=0,
+                    mode="auto",
+                    baseline=None,
+                    restore_best_weights=False,
+                )
+            ])
+        print(history.history)
+        # Save best instance of the model.
+        model.save(f'./models/{model_name}/pretrained_model_{urban_rural}_{img_source}_fold_{fold}.h5')
 
-    # generate datasets
-    train_generator_func = partial(generator, train_dir, label_df, batch_size, means, stds, input_height, input_width,
-                                   clipping_values, channels, channel_size, 1)
+        # Evaluate model on hold out validation set for this fold.
 
-    train_ds = Dataset.from_generator(generator=train_generator_func,
-                                      output_types=(tf.float32, tf.float32),
-                                      output_shapes=((batch_size, input_width, input_height, channel_size),
-                                                     (batch_size,)),
-                                      )
+        print('Evaluating Model')
 
-    # This part generates the validation generator for the NN
-    val_generator_func = partial(generator, val_dir, label_df, batch_size, means, stds, input_height, input_width,
-                                 clipping_values, channels, channel_size, 1)
+        # This part generates the test generator for the NN
+        test_generator_func = partial(generator, img_dir, X_test, y_test, batch_size, input_height, input_width,
+                                      clipping_values, channel_size, channels)
+        test_ds = Dataset.from_generator(generator=test_generator_func,
+                                         output_types=(tf.float64, tf.float32),
+                                         output_shapes=((batch_size, input_width, input_height, channel_size),
+                                                        (batch_size,)),
+                                         )
+        # Evaluate on testset
+        evaluation = model.evaluate(test_ds)
+        wandb.log({'evaluate': evaluation})
+        del model
+        del train_ds
+        del val_ds
+        del test_ds
 
-    val_ds = Dataset.from_generator(generator=val_generator_func,
-                                    output_types=(tf.float32, tf.float32),
-                                    output_shapes=((batch_size, input_width, input_height, channel_size),
-                                                   (batch_size,)),
-                                    )
+    wandb.finish()
 
-    # Load VGG19 model
-    hyperspectral_model_obj = VVG19_hyperspectral(img_w=input_width,
-                                                  img_h=input_height,
-                                                  channels=channel_size
-                                                  )
-    vgg19_template = hyperspectral_model_obj.load_vgg19_hyperspectral_template()
-
-    # adjust to hyperspectral input
-    model = hyperspectral_model_obj.resize_weights(vgg19_template)
-
-    model.compile(optimizer=optimizers.Adam(learning_rate=2e-4),
-                  loss='mean_squared_error')
-    # Fit and train model
-    history = model.fit(
-        train_ds,
-        validation_data=val_ds,
-        epochs=100)
-    print(history.history)
-
-    # This part generates the test generator for the NN
-    test_generator_func = partial(generator, test_dir, label_df, batch_size, means, stds, input_height, input_width,
-                                  clipping_values, channels, channel_size, 1)
-    test_ds = Dataset.from_generator(generator=test_generator_func,
-                                     output_types=(tf.float32, tf.float32),
-                                     output_shapes=((batch_size, input_width, input_height, channel_size),
-                                                    (batch_size,)),
-                                     )
-    # Evaluate on testset
-    MSE = model.evaluate(test_ds)
-
-    # Return Mean Squared Error
-    print('Model Loss is {}'.format(MSE))
 
 
 if __name__ == '__main__':
-    main(img_dir='/mnt/datadisk/data/Sentinel2/preprocessed/asset/urban_rural',
-         subset=True,
-         input_height=2003,
-         input_width=2003,
+    main(img_dir='/mnt/datadisk/data/Sentinel2/preprocessed/asset/urban_rural/',
+         csv_path='/home/stoermer/Sentinel/gps_csv/',
+         model_name = 'vgg19',
+         k=5,
+         input_height=400,
+         input_width=400,
+         img_source='s2',
+         urban_rural='u',
          channels=[],
          channel_size=13,
          clipping_values=[0, 3000],
-         batch_size=20)
+         batch_size=16,
+         epochs=20,
+         subset=False)
