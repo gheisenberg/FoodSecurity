@@ -117,39 +117,6 @@ def calc_std(means, img_dir: str, img_list: list, input_height: str, input_width
     return stds
 
 
-def normalize_resize(img_path: str, input_height: str, input_width: str, clipping_values: list, means: np.ndarray,
-                     stds: np.ndarray):
-    '''
-    Normalize an image based on the means and standard deviation of its split and resize it to the given input size.
-    Args:
-        img_path: Path to image data
-        input_height (int): pixel height of input
-        input_width (int): pixel width of input
-        clipping_values (list): interval of min and max values for clipping
-
-    Returns:
-        array(np.array): Normalized and resized Image Array
-    '''
-    with rasterio.open(img_path) as img:
-        array = img.read().astype("float32")
-    array[np.isnan(array)] = 0
-    assert not np.any(np.isnan(array)), "Float"
-
-    # Clipping
-    array = np.clip(array, a_min=clipping_values[0], a_max=clipping_values[1])
-
-    assert not np.any(np.isnan(array)), "After clipping"
-
-    # Resize the array to ensure that all image arrays have the same size
-    array = np.resize(array, (array.shape[0], input_height, input_width))
-    # Normalize the array
-    array = ((array.transpose(1, 2, 0) - means) / stds).transpose(2, 0, 1)
-    assert not np.any(np.isnan(array)), "Normalize"
-
-    # return normalized and resized image array
-    return array
-
-
 def create_splits(img_dir: str, wealth_path: str, urban_rural: str, subset=False):
     '''
     Create train/val and testsplit for Cross Validation.
@@ -167,11 +134,11 @@ def create_splits(img_dir: str, wealth_path: str, urban_rural: str, subset=False
     '''
     if subset:
         if urban_rural == 'ur' or urban_rural == 'UR':
-            img_list = [img for img in os.listdir(img_dir) if img.endswith('.tif')][:200]
+            img_list = [img for img in os.listdir(img_dir) if img.endswith('.tif')][:50]
         elif urban_rural == 'u' or urban_rural == 'U':
-            img_list = [img for img in os.listdir(img_dir) if img.endswith('u_2.0.tif')][:200]
+            img_list = [img for img in os.listdir(img_dir) if img.endswith('u_2.0.tif')][:50]
         elif urban_rural == 'r' or urban_rural == 'R':
-            img_list = [img for img in os.listdir(img_dir) if img.endswith('r_10.0.tif')][:200]
+            img_list = [img for img in os.listdir(img_dir) if img.endswith('r_10.0.tif')][:50]
         else:
             raise ValueError(f'{urban_rural} is not a valid argument.')
     else:
@@ -204,8 +171,6 @@ def generator(img_dir: str, X: list, y: np.ndarray, batch_size: int, input_heigh
         batch_size (int): Size of training batches
         input_height (int): pixel height of input
         input_width (int): pixel width of input
-        clipping_values (list): interval of min and max values for clipping
-        channels (list):  Channels to use; [] if all channels are to be used
 
     Returns
         batch_x (np.ndarray): feature batch
