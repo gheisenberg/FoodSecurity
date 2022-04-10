@@ -16,15 +16,15 @@ from tensorflow.keras import optimizers, models
 from sklearn.model_selection import KFold
 
 # import models
-from vvg19 import VVG19_hyperspectral
+from vgg19 import VVG19_hyperspectral
 from resnet50 import ResNet50_hyperspectral
 
 import wandb
 from wandb.keras import WandbCallback
 
 
-def main(img_dir: str, csv_path: str, model_name:str, k: int, input_height: int, input_width: int, img_source: str, urban_rural: str,
-         channels: list, channel_size: int, clipping_values: list, batch_size: int, epochs: int, subset:bool):
+def main(img_dir: str, csv_path: str, model_name: str, k: int, input_height: int, input_width: int, img_source: str,
+         urban_rural: str, channel_size: int, batch_size: int, epochs: int, subset: bool):
     # subset: bool, clipping_values: list, channels: list,
     '''
 
@@ -41,7 +41,6 @@ def main(img_dir: str, csv_path: str, model_name:str, k: int, input_height: int,
         channels (list):  Channels to use; [] to use all channels
         channel_size (int): Number of channels (3 for RGB, 13 for all channels)
                             !Nightlight channel is transformed to 3 channels for model compatibility
-        clipping_values (list): interval of min and max values for clipping
         batch_size (int): Size of training batches
         epochs (int): Number of Training Epochs
         subset (bool): Whether or not to use a subset (for testing)
@@ -71,7 +70,6 @@ def main(img_dir: str, csv_path: str, model_name:str, k: int, input_height: int,
                           'mean_absolute_error',
                           'mean_absolute_percentage_error']
 
-
         # Load VGG19 model
 
         X_train, X_val = list(itemgetter(*train_index)(X_train_val)), list(itemgetter(*val_index)(X_train_val))
@@ -79,23 +77,23 @@ def main(img_dir: str, csv_path: str, model_name:str, k: int, input_height: int,
         print(f'Training size: {len(X_train)} \n Validation size: {len(X_val)} \n Test Size: {len(X_test)}')
         # generate datasets
         train_generator_func = partial(generator, img_dir, X_train, y_train, batch_size, input_height, input_width,
-                                       clipping_values, channel_size, channels)
+                                       channel_size)
 
         train_ds = Dataset.from_generator(generator=train_generator_func,
                                           output_types=(tf.float64, tf.float64),
                                           output_shapes=((batch_size, input_width, input_height, channel_size),
                                                          (batch_size,)),
                                           )
-         # This part generates the validation generator for the NN
+
+        # This part generates the validation generator for the NN
         val_generator_func = partial(generator, img_dir, X_val, y_val, batch_size, input_height, input_width,
-                                     clipping_values, channel_size, channels)
+                                     channel_size)
 
         val_ds = Dataset.from_generator(generator=val_generator_func,
                                         output_types=(tf.float64, tf.float32),
                                         output_shapes=((batch_size, input_width, input_height, channel_size),
                                                        (batch_size,)),
                                         )
-
 
         # adjust to hyperspectral input
         gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -118,7 +116,10 @@ def main(img_dir: str, csv_path: str, model_name:str, k: int, input_height: int,
             model.compile(optimizer=optimizers.RMSprop(learning_rate=0.0001),
                           loss='mean_squared_error', metrics=[tf.keras.metrics.MeanSquaredError(),
                                                               tf.keras.metrics.MeanAbsoluteError(),
-                                                              tf.keras.metrics.MeanAbsolutePercentageError()])
+                                                              tf.keras.metrics.MeanAbsolutePercentageError(),
+                                                              tf.keras.metrics.RootMeanSquaredError(),
+                                                              tf.keras.metrics.CosineSimilarity()
+                                                              ])
         print('Start Model Training')
         # Fit and train model
         history = model.fit(
@@ -127,17 +128,9 @@ def main(img_dir: str, csv_path: str, model_name:str, k: int, input_height: int,
             epochs=epochs,
             verbose=1,
             callbacks=[
-                WandbCallback(),
-                tf.keras.callbacks.EarlyStopping(
-                    monitor="val_loss",
-                    min_delta=0,
-                    patience=10,
-                    verbose=0,
-                    mode="auto",
-                    baseline=None,
-                    restore_best_weights=False,
-                )
-            ])
+                WandbCallback()
+            ],
+            run_eagerly=True)
         print(history.history)
         # Save best instance of the model.
         model.save(f'./models/{model_name}/pretrained_model_{urban_rural}_{img_source}_fold_{fold}.h5')
@@ -148,7 +141,7 @@ def main(img_dir: str, csv_path: str, model_name:str, k: int, input_height: int,
 
         # This part generates the test generator for the NN
         test_generator_func = partial(generator, img_dir, X_test, y_test, batch_size, input_height, input_width,
-                                      clipping_values, channel_size, channels)
+                                      channel_size)
         test_ds = Dataset.from_generator(generator=test_generator_func,
                                          output_types=(tf.float64, tf.float32),
                                          output_shapes=((batch_size, input_width, input_height, channel_size),
@@ -156,7 +149,13 @@ def main(img_dir: str, csv_path: str, model_name:str, k: int, input_height: int,
                                          )
         # Evaluate on testset
         evaluation = model.evaluate(test_ds)
-        wandb.log({'evaluate': evaluation})
+
+        wandb.log({'MeanSquaredError': evaluation[0]})
+        wandb.log({'MeanAbsoluteError': evaluation[1]})
+        wandb.log({'MeanAbsolutePercentageError': evaluation[2]})
+        wandb.log({'RootMeanSquaredError': evaluation[3]})
+        wandb.log({'CosineSimilarity': evaluation[4]})
+
         del model
         del train_ds
         del val_ds
@@ -165,19 +164,16 @@ def main(img_dir: str, csv_path: str, model_name:str, k: int, input_height: int,
     wandb.finish()
 
 
-
 if __name__ == '__main__':
     main(img_dir='/mnt/datadisk/data/Sentinel2/preprocessed/asset/urban_rural/',
          csv_path='/home/stoermer/Sentinel/gps_csv/',
-         model_name = 'vgg19',
+         model_name='vgg19',
          k=5,
-         input_height=400,
-         input_width=400,
+         input_height=1340,
+         input_width=1340,
          img_source='s2',
-         urban_rural='u',
-         channels=[],
+         urban_rural='ur',
          channel_size=13,
-         clipping_values=[0, 3000],
-         batch_size=16,
+         batch_size=32,
          epochs=20,
          subset=False)
