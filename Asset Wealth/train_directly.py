@@ -16,7 +16,7 @@ from tensorflow.keras import optimizers, models
 from sklearn.model_selection import KFold
 
 # import models
-from vgg19 import VVG19_hyperspectral
+from vvg19 import VVG19_hyperspectral
 from resnet50 import ResNet50_hyperspectral
 
 import wandb
@@ -127,10 +127,7 @@ def main(img_dir: str, csv_path: str, model_name: str, k: int, input_height: int
             validation_data=val_ds,
             epochs=epochs,
             verbose=1,
-            callbacks=[
-                WandbCallback()
-            ],
-            run_eagerly=True)
+            callbacks=[WandbCallback()])
         print(history.history)
         # Save best instance of the model.
         model.save(f'./models/{model_name}/pretrained_model_{urban_rural}_{img_source}_fold_{fold}.h5')
@@ -165,15 +162,15 @@ def main(img_dir: str, csv_path: str, model_name: str, k: int, input_height: int
 
 
 if __name__ == '__main__':
-    main(img_dir='/mnt/datadisk/data/Sentinel2/preprocessed/asset/urban_rural/',
+    main(img_dir='/mnt/datadisk/data/Sentinel2/preprocessed/asset/urban/',
          csv_path='/home/stoermer/Sentinel/gps_csv/',
          model_name='vgg19',
          k=5,
-         input_height=1340,
-         input_width=1340,
+         input_height=400,
+         input_width=400,
          img_source='s2',
-         urban_rural='ur',
+         urban_rural='u',
          channel_size=13,
-         batch_size=32,
+         batch_size=16,
          epochs=20,
          subset=False)
