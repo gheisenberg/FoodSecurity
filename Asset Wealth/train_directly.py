@@ -1,7 +1,8 @@
 import os
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 from data_utils import generator, create_splits
 import matplotlib.pyplot as plt
 from functools import partial
@@ -9,10 +10,14 @@ from operator import itemgetter
 import pandas as pd
 import numpy as np
 
-import keras
+from tensorflow.python.keras import backend as K
+
 import tensorflow as tf
 from tensorflow.data import Dataset
 from tensorflow.keras import optimizers, models
+# tf.debugging.set_log_device_placement(True)
+
+
 from sklearn.model_selection import KFold
 
 # import models
@@ -21,6 +26,22 @@ from resnet50 import ResNet50_hyperspectral
 
 import wandb
 from wandb.keras import WandbCallback
+import atexit
+
+tf.debugging.set_log_device_placement(True)
+gpus = tf.config.experimental.list_physical_devices('GPU')
+print(gpus)
+if gpus:
+    try:
+        # Currently, memory growth needs to be the same across GPUs
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        print(len(gpus), "Physical GPU(s)")
+    except RuntimeError as e:
+        # Memory growth must be set before GPUs have been initialized
+        print(e)
+gpus = ["GPU: 2"]
+print('gpus', gpus)
 
 
 def main(img_dir: str, csv_path: str, model_name: str, k: int, input_height: int, input_width: int, img_source: str,
@@ -48,28 +69,13 @@ def main(img_dir: str, csv_path: str, model_name: str, k: int, input_height: int
     Returns:
 
     '''
+
     X_train_val, X_test, y_train_val, y_test = create_splits(img_dir, csv_path, urban_rural, subset)
     kf = KFold(n_splits=k, random_state=None, shuffle=False)
     for fold, (train_index, val_index) in enumerate(kf.split(X_train_val)):
+        if fold <= 3:
+            continue
         print(f'Fold: {fold}')
-        wandb.init(project="Asset_Wealth", entity="piastoermer", dir='/mnt/datadisk/data/Sentinel2/',
-                   group=f'{model_name}_pretrained_model_{urban_rural}_{img_source}', job_type='train',
-                   name=f'{model_name}_pretrained_model_{urban_rural}_{img_source}_fold_{fold}')
-        config = wandb.config  # Config is a variable that holds and saves hyperparameters and inputs
-        config.learning_rate = 2e-4
-        config.batch_size = batch_size
-        config.epochs = epochs
-        config.img_width = input_width
-        config.img_height = input_height
-        config.model_name = 'vgg19'
-        config.pretrain_weights = 'imagenet'
-        config.urban_rural = urban_rural  # 'all'
-        config.image_source = img_dir
-        config.loss = 'mean_squared_error'
-        config.metrics = ['mean_squared_error',
-                          'mean_absolute_error',
-                          'mean_absolute_percentage_error']
-
         # Load VGG19 model
 
         X_train, X_val = list(itemgetter(*train_index)(X_train_val)), list(itemgetter(*val_index)(X_train_val))
@@ -96,30 +102,45 @@ def main(img_dir: str, csv_path: str, model_name: str, k: int, input_height: int
                                         )
 
         # adjust to hyperspectral input
-        gpus = tf.config.experimental.list_physical_devices('GPU')
-        print("Num GPUs Available: ", len(gpus))
-        mirrored_strategy = tf.distribute.MirroredStrategy(devices=["/gpu:0", "/gpu:1",
-                                                                    "/gpu:2"])
-        with mirrored_strategy.scope():
-            if model_name == 'vgg19':
-                hyperspectral_model_obj = VVG19_hyperspectral(img_w=input_width,
-                                                              img_h=input_height,
-                                                              channels=channel_size
-                                                              )
-                model = hyperspectral_model_obj.load_vgg19()
-            elif model_name == 'resnet50':
-                hyperspectral_model_obj = ResNet50_hyperspectral(img_w=input_width,
-                                                                 img_h=input_height,
-                                                                 channels=channel_size
-                                                                 )
-                model = hyperspectral_model_obj.load_resnet50()
-            model.compile(optimizer=optimizers.RMSprop(learning_rate=0.0001),
-                          loss='mean_squared_error', metrics=[tf.keras.metrics.MeanSquaredError(),
-                                                              tf.keras.metrics.MeanAbsoluteError(),
-                                                              tf.keras.metrics.MeanAbsolutePercentageError(),
-                                                              tf.keras.metrics.RootMeanSquaredError(),
-                                                              tf.keras.metrics.CosineSimilarity()
-                                                              ])
+
+        if model_name == 'vgg19':
+            hyperspectral_model_obj = VVG19_hyperspectral(img_w=input_width,
+                                                          img_h=input_height,
+                                                          channels=channel_size
+                                                          )
+            model = hyperspectral_model_obj.load_vgg19()
+        elif model_name == 'resnet50':
+            hyperspectral_model_obj = ResNet50_hyperspectral(img_w=input_width,
+                                                             img_h=input_height,
+                                                             channels=channel_size
+                                                             )
+            model = hyperspectral_model_obj.load_resnet50()
+
+        model.compile(optimizer=optimizers.RMSprop(learning_rate=0.0001),
+                      loss='mean_squared_error', metrics=[tf.keras.metrics.MeanSquaredError(),
+                                                          tf.keras.metrics.MeanAbsoluteError(),
+                                                          tf.keras.metrics.MeanAbsolutePercentageError(),
+                                                          tf.keras.metrics.RootMeanSquaredError(),
+                                                          tf.keras.metrics.CosineSimilarity()
+                                                          ])
+
+        wandb.init(project="Asset_Wealth", entity="piastoermer", dir='/mnt/datadisk/data/Sentinel2/',
+                   group=f'{model_name}_pretrained_model_{urban_rural}_{img_source}_{batch_size}', job_type='train',
+                   name=f'{model_name}_pretrained_model_{urban_rural}_{img_source}_{batch_size}_fold_{fold}')
+        config = wandb.config  # Config is a variable that holds and saves hyperparameters and inputs
+        config.learning_rate = 2e-4
+        config.batch_size = batch_size
+        config.epochs = epochs
+        config.img_width = input_width
+        config.img_height = input_height
+        config.model_name = 'vgg19'
+        config.pretrain_weights = 'imagenet'
+        config.urban_rural = urban_rural  # 'all'
+        config.image_source = img_dir
+        config.loss = 'mean_squared_error'
+        config.metrics = ['mean_squared_error',
+                          'mean_absolute_error',
+                          'mean_absolute_percentage_error']
         print('Start Model Training')
         # Fit and train model
         history = model.fit(
@@ -158,19 +179,23 @@ def main(img_dir: str, csv_path: str, model_name: str, k: int, input_height: int
         del val_ds
         del test_ds
 
-    wandb.finish()
+        wandb.finish()
+
+
+#     except RuntimeError as e:
+#         print(e)
 
 
 if __name__ == '__main__':
-    main(img_dir='/mnt/datadisk/data/Sentinel2/preprocessed/asset/urban/',
+    main(img_dir='/mnt/datadisk/data/Sentinel2/preprocessed/asset/urban_rural/',
          csv_path='/home/stoermer/Sentinel/gps_csv/',
          model_name='vgg19',
          k=5,
-         input_height=400,
-         input_width=400,
+         input_height=1340,
+         input_width=1340,
          img_source='s2',
-         urban_rural='u',
+         urban_rural='ur',
          channel_size=13,
-         batch_size=16,
+         batch_size=10,
          epochs=20,
          subset=False)
