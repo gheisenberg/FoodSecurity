@@ -48,7 +48,7 @@ class ResNet50_hyperspectral():
             self.hs_inputs = Input(shape=(self.img_h, self.img_w, 3), name='input')
         else:
             self.hs_inputs = Input(shape=(self.img_h, self.img_w, self.channels), name='input')
-        self.do_first_layer_dilated_conv = do_first_layer_dilated_conv
+
     # adapted from https://github.com/keras-team/keras-contrib/blob/master/keras_contrib/applications/resnet.py to fit
     # hyperspectral input images
     def load_resnet50(self):
@@ -289,26 +289,22 @@ class ResNet50_hyperspectral():
 
         if self.channels > 3:
 
-            layers_to_modify = ['conv1_pad']  # Turns out the only layer that changes
+            layers_to_modify = ['conv2d']  # Turns out the only layer that changes
             # shape due to 4th to 13th channel is the first
             # convolution layer.
-            for layer in self.pretrained_model.layers:  # pretrained Model and template have the same
+            for layer in resnet50_template.layers:  # pretrained Model and template have the same
                 # layers, so it doesn't matter which to
                 # iterate over.
 
                 if layer.get_weights():  # Skip input, pooling and no weights layers
 
-                    target_layer = vgg_template.get_layer(name=layer.name)
+                    target_layer = resnet50_template.get_layer(name=layer.name)
                     # print(target_layer.get_weights())
                     if layer.name in layers_to_modify:
 
                         kernels = layer.get_weights()[0]
                         biases = layer.get_weights()[1]
-                        kernels_extra_channel = np.concatenate((kernels,
-                                                                kernels[:, :, -3:, :],
-                                                                kernels[:, :, -3:, :],
-                                                                kernels[:, :, -3:, :],
-                                                                kernels[:, :, -1:, :]),
+                        kernels_extra_channel = np.concatenate((kernels,),
                                                                axis=-2)  # For channels_last
 
                         target_layer.set_weights([kernels_extra_channel, biases])
