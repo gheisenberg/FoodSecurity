@@ -84,32 +84,32 @@ class VVG19_hyperspectral():
         vgg_template = models.Model(inputs=self.hs_inputs, outputs=x)
 
         if self.channels > 3:
+            layers_to_modify = ['conv1_conv']  # Turns out the only layer that changes
+        # shape due to 4th to 13th channel is the first convolution layer.
+        else:
+            layers_to_modify = []
+        for layer in self.pretrained_model.layers:  # pretrained Model and template have the same
+            # layers, so it doesn't matter which to
+            # iterate over.
 
-            layers_to_modify = ['block1_conv1']  # Turns out the only layer that changes
-            # shape due to 4th to 13th channel is the first
-            # convolution layer.
-            for layer in self.pretrained_model.layers:  # pretrained Model and template have the same
-                # layers, so it doesn't matter which to
-                # iterate over.
+            if layer.get_weights():  # Skip input, pooling and no weights layers
 
-                if layer.get_weights():  # Skip input, pooling and no weights layers
+                target_layer = vgg_template.get_layer(name=layer.name)
+                # print(target_layer.get_weights())
+                if layer.name in layers_to_modify:
 
-                    target_layer = vgg_template.get_layer(name=layer.name)
-                    # print(target_layer.get_weights())
-                    if layer.name in layers_to_modify:
+                    kernels = layer.get_weights()[0]
+                    biases = layer.get_weights()[1]
+                    kernels_extra_channel = np.concatenate((kernels,
+                                                            kernels[:, :, -3:, :],
+                                                            kernels[:, :, -3:, :],
+                                                            kernels[:, :, -3:, :],
+                                                            kernels[:, :, -1:, :]),
+                                                           axis=-2)  # For channels_last
 
-                        kernels = layer.get_weights()[0]
-                        biases = layer.get_weights()[1]
-                        kernels_extra_channel = np.concatenate((kernels,
-                                                                kernels[:, :, -3:, :],
-                                                                kernels[:, :, -3:, :],
-                                                                kernels[:, :, -3:, :],
-                                                                kernels[:, :, -1:, :]),
-                                                               axis=-2)  # For channels_last
+                    target_layer.set_weights([kernels_extra_channel, biases])
 
-                        target_layer.set_weights([kernels_extra_channel, biases])
-
-                    else:
-                        target_layer.set_weights(layer.get_weights())
+                else:
+                    target_layer.set_weights(layer.get_weights())
 
         return vgg_template
