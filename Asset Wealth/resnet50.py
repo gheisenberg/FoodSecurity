@@ -356,7 +356,7 @@ class ResNet50v2_hyperspectral():
         # Adjust weights to 13 input channels
         ## adapted from https://stackoverflow.com/questions/53251827/pretrained-tensorflow-model-rgb-rgby-channel-extension
         if self.channels > 3:
-            layers_to_modify = ['block1_conv1']  # Turns out the only layer that changes
+            layers_to_modify = ['conv1_conv']  # Turns out the only layer that changes
         # shape due to 4th to 13th channel is the first convolution layer.
         else:
             layers_to_modify = []
