@@ -1,20 +1,21 @@
 import tensorflow as tf
-from tensorflow.keras import layers, models, optimizers
+from tensorflow.keras import models, optimizers
 
-from keras.models import Model
-from keras.layers import Input
-from keras.layers import Activation
-from keras.layers import Reshape
-from keras.layers import Dense
-from keras.layers import Conv2D
-from keras.layers import MaxPooling2D
-from keras.layers import GlobalMaxPooling2D
-from keras.layers import GlobalAveragePooling2D
-from keras.layers import Dropout
-from keras.layers.merge import add
-from keras.layers import BatchNormalization
-from keras.regularizers import l2
-from keras import backend as K
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import Activation
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Conv2D
+from tensorflow.keras.layers import MaxPooling2D
+from tensorflow.keras.layers import ZeroPadding2D
+from tensorflow.keras.layers import BatchNormalization
+from tensorflow.keras.layers import GlobalAveragePooling2D
+from tensorflow.keras.layers import GlobalMaxPooling2D
+from tensorflow.keras.layers import Add
+from tensorflow.keras.layers import Flatten
+from tensorflow.keras.layers import DepthwiseConv2D
+from tensorflow.keras.layers import Lambda
+from tensorflow.keras import backend
 from tensorflow.keras.applications.resnet_v2 import ResNet50V2
 
 import numpy as np
@@ -36,11 +37,11 @@ class ResNet50v2_hyperspectral():
         self.img_h = img_h
         self.channels = channels
 
-        self.resnet50 = ResNet50(weights='imagenet', include_top=False,
+        self.resnet50v2 = ResNet50V2(weights='imagenet', include_top=False,
                                  input_tensor=layers.Input(shape=(self.img_h, self.img_w, 3), name='input_sentinel'))
         # Load part of the VGG without the top layers into 'pretrained' model
-        self.pretrained_model = models.Model(inputs=self.resnet50.input,
-                                             outputs=self.resnet50.get_layer('conv5_block3_out').output)
+        self.pretrained_model = models.Model(inputs=self.resnet50v2.input,
+                                             outputs=self.resnet50v2.get_layer('conv5_block3_out').output)
         self.config = self.pretrained_model.get_config()
 
         self.hs_inputs = Input(shape=(self.img_h, self.img_w, self.channels), name='input')
@@ -111,14 +112,14 @@ class ResNet50v2_hyperspectral():
             x = stack_fn(x)
 
             if pooling == 'avg':
-                x = layers.GlobalAveragePooling2D(name='avg_pool')(x)
+                x = GlobalAveragePooling2D(name='avg_pool')(x)
             elif pooling == 'max':
-                x = layers.GlobalMaxPooling2D(name='max_pool')(x)
+                x = GlobalMaxPooling2D(name='max_pool')(x)
 
-            x = layers.Flatten(name='flatten')(x)
-            x = layers.Dense(128, activation='relu')(x)
-            x = layers.Dense(128, activation='relu')(x)
-            x = layers.Dense(1)(x)
+            x = Flatten(name='flatten')(x)
+            x = Dense(128, activation='relu')(x)
+            x = Dense(128, activation='relu')(x)
+            x = Dense(1)(x)
 
             # Create model.
             model = Model(img_input, x, name=model_name)
