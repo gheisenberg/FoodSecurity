@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 
 from tensorflow.python.keras import backend as K
-
+from tensorflow.keras.callbacks import EarlyStopping
 import tensorflow as tf
 from tensorflow.data import Dataset
 from tensorflow.keras import optimizers, models
@@ -40,8 +40,6 @@ if gpus:
     except RuntimeError as e:
         # Memory growth must be set before GPUs have been initialized
         print(e)
-gpus = ["GPU: 2"]
-print('gpus', gpus)
 
 
 def main(img_dir: str, csv_path: str, model_name: str, k: int, input_height: int, input_width: int, img_source: str,
@@ -73,8 +71,6 @@ def main(img_dir: str, csv_path: str, model_name: str, k: int, input_height: int
     X_train_val, X_test, y_train_val, y_test = create_splits(img_dir, csv_path, urban_rural, subset)
     kf = KFold(n_splits=k, random_state=None, shuffle=False)
     for fold, (train_index, val_index) in enumerate(kf.split(X_train_val)):
-        if fold <= 3:
-            continue
         print(f'Fold: {fold}')
         # Load VGG19 model
 
@@ -148,7 +144,11 @@ def main(img_dir: str, csv_path: str, model_name: str, k: int, input_height: int
             validation_data=val_ds,
             epochs=epochs,
             verbose=1,
-            callbacks=[WandbCallback()])
+            callbacks=[WandbCallback(),
+                       EarlyStopping(
+                           monitor="val_loss",
+                           patience=1,
+                       )])
         print(history.history)
         # Save best instance of the model.
         model.save(f'./models/{model_name}/pretrained_model_{urban_rural}_{img_source}_fold_{fold}.h5')
@@ -187,15 +187,15 @@ def main(img_dir: str, csv_path: str, model_name: str, k: int, input_height: int
 
 
 if __name__ == '__main__':
-    main(img_dir='/mnt/datadisk/data/Sentinel2/preprocessed/asset/urban_rural/',
+    main(img_dir='/mnt/datadisk/data/VIIRS/preprocessed/asset/urban_rural/prep',
          csv_path='/home/stoermer/Sentinel/gps_csv/',
          model_name='vgg19',
          k=5,
          input_height=1340,
          input_width=1340,
-         img_source='s2',
+         img_source='viirs',
          urban_rural='ur',
-         channel_size=13,
+         channel_size=3,
          batch_size=10,
          epochs=20,
          subset=False)
