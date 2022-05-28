@@ -35,4 +35,4 @@
 2. Use ```/notebooks/asset_wealth_prognosis.ipynb``` to analyze test results and predict 
 Asset Wealth for Mozambique (2016, 2017,2019, 2020 and 2021).
 
-## [See Project Documentation](docs/build/html/index.html)
+## [See Project Documentation](code_documentation.pdf)
