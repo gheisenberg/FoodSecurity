@@ -1,83 +1,93 @@
-Python Scripts
-==============
+src package
+===========
 
+Submodules
+----------
 
-src.config
------------
+src.config module
+-----------------
 
 .. automodule:: src.config
    :members:
    :undoc-members:
    :show-inheritance:
 
-src.data\_utils 
----------------
+src.data\_utils module
+----------------------
 
 .. automodule:: src.data_utils
    :members:
    :undoc-members:
    :show-inheritance:
 
-src.dhs\_preparation
---------------------
+src.dhs\_preparation module
+---------------------------
 
 .. automodule:: src.dhs_preparation
    :members:
    :undoc-members:
    :show-inheritance:
 
-src.ee\_sentinel
-----------------
+src.ee\_sentinel module
+-----------------------
 
 .. automodule:: src.ee_sentinel
    :members:
    :undoc-members:
    :show-inheritance:
 
-src.ee\_viirs
--------------
+src.ee\_viirs module
+--------------------
 
 .. automodule:: src.ee_viirs
    :members:
    :undoc-members:
    :show-inheritance:
 
-src.preprocess\_geodata
------------------------
+src.preprocess\_geodata module
+------------------------------
 
 .. automodule:: src.preprocess_geodata
    :members:
    :undoc-members:
    :show-inheritance:
 
-src.rename\_viirs
------------------
+src.rename\_viirs module
+------------------------
 
 .. automodule:: src.rename_viirs
    :members:
    :undoc-members:
    :show-inheritance:
 
-src.resnet50
-------------
+src.resnet50 module
+-------------------
 
 .. automodule:: src.resnet50
    :members:
    :undoc-members:
    :show-inheritance:
 
-src.train
----------
+src.train module
+----------------
 
 .. automodule:: src.train
    :members:
    :undoc-members:
    :show-inheritance:
 
-src.vgg19
----------
+src.vgg19 module
+----------------
 
 .. automodule:: src.vgg19
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: src
    :members:
    :undoc-members:
    :show-inheritance:

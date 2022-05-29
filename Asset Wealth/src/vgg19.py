@@ -31,9 +31,7 @@ class VGG19_hyperspectral():
         self.hs_inputs = Input(shape=(self.img_h, self.img_w, self.channels), name='input')
 
     def load_vgg19(self):
-        """
-
-         Returns: Create a Model Template of VGG19 with RGB or hyperspectral input shape (as defined in init)
+        """Returns a VGG19 `keras.Model` instance fitted to hyperspectral/RGB image input.
 
          """
 

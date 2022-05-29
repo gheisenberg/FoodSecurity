@@ -1,6 +1,6 @@
 import sys
 
-sys.path.append("..")
+sys.path.append("../../../Asset Wealth")
 
 import os
 import numpy as np
@@ -15,15 +15,15 @@ from src.data_utils import calc_std
 from src.config import clipping_values
 
 def slice_to_input_size(array: np.ndarray, input_height: int, input_width: int):
-    '''
+    '''Slice image array to desired input shape.
 
     Args:
-        array (np.ndarray): Numpy Array containing Image Data
-        input_height (int): Uniform Image Height to slice to
-        input_width (int):  Uniform Image Width to slice to
+        array (np.ndarray): Numpy array containing image data
+        input_height (int): Uniform image height to slice to
+        input_width (int):  Uniform image width to slice to
 
     Returns:
-        array (np.array): Numpy Array containing Image Data in shape of Input Height/Width and Bandwidth
+        array (np.array): Numpy array containing image data in shape of input height/width and Bandwidth
     '''
     if len(array.shape) == 3:
         outer_pixels_y = int((array.shape[1] - input_height) / 2)
@@ -46,22 +46,22 @@ def slice_to_input_size(array: np.ndarray, input_height: int, input_width: int):
 
 def standardize_resize(img: str, img_path: str,  input_height: str, input_width: str, clipping_values: list,
                      means=False, stds=False, add_img_path=False, standardize=False):
-    '''
-    Standardize and Resize GeoTIFFs.
-    Standardization is performed per Band using Standard Scaler.
-    Resizing is performed by slicing to the Center of the Image in Shape of provided Input Size.
-    For VIIRS Images, the Band is tripled to fit RGB Input Shape of common CNNs.
-    Standardized and Resized Images are stored in a new GeoTIFF.
+    '''Standardize and resize GeoTIFFs.
+    Standardization is performed per band using Standard Scaler.
+    Resizing is performed by slicing to the center of the image in shape of provided input Size.
+    For VIIRS images, the band is tripled to fit RGB input shape of common CNNs.
+    Standardized and resized images are stored in a new GeoTIFF.
+    
     Args:
-        img (str):                  Filename of Image to Normalize and Resize
-        img_path (str):             Path to Image Data
-        input_height (int):         Desired Input Height
-        input_width (int):          Desired Input Width
-        clipping_values (list):     Interval of Min and Max Values for Clipping
-        means (bool/np.ndarray):         Optional: Result of calc_mean: Mean of Pixel Values for each Channel
-        stds (bool/np.ndarray):          Optional: Result of calc_mean: Standard Deviation of Pixel Values for each Channel
-        add_img_path (bool/str):    Optional: Path to Image Data to add (eg. for combining Sentinel2 and VIIRS)
-        standardize (bool):                Optional: Whether or not to standardize Image Data (e.g. standardization is not needed when already normalized Sentinel2 and VIIRS data are merged)
+        img (str):                  Filename of image to normalize and resize
+        img_path (str):             Path to image data
+        input_height (int):         Desired input height
+        input_width (int):          Desired input width
+        clipping_values (list):     Interval of min and max values for clipping
+        means (bool/np.ndarray):         Optional: Result of calc_mean: Mean of pixel values for each channel
+        stds (bool/np.ndarray):          Optional: Result of calc_mean: Standard deviation of pixel values for each channel
+        add_img_path (bool/str):    Optional: Path to image data to add (eg. for combining Sentinel-2 and VIIRS)
+        standardize (bool):                Optional: Whether or not to standardize image data (e.g. standardization is not needed when already normalized Sentinel-2 and VIIRS data is merged)
 
     '''
     ds = gdal.Open(os.path.join(img_path, img))
@@ -140,19 +140,20 @@ def standardize_resize(img: str, img_path: str,  input_height: str, input_width:
 
 def main(img_path: str, ur: str, year: str, input_height: str, input_width: str,
          clipping_values: list, channels: list, add_img_path=False, standardize=False):
-    '''
+    '''Preprocessing of GeoTIFFs.
+    Preprocessing includes slicing to desired input size and standardizing the image data.
 
     Args:
-        img_path (str):             Path to Image Data
+        img_path (str):             Path to image data
         ur (str):                   'u' for urban, 'r' for rural
         year (str):                 timespan (2012_2014 / 2016_2020) or all data
-        input_height (int):         Desired Input Height
-        input_width (int):          Desired Input Width
-        clipping_values (list):     Interval of Min and Max Values for Clipping
-        channels (list):            List of Channels to use. [] to use all channels.
-        add_img_path (bool/str):    Optional: Path to Image Data to add (eg. for combining Sentinel2 and VIIRS)
-        standardize:                Optional: Whether or not to standardize Image Data (e.g. standardization is not needed when already
-                                    normalized Sentinel2 and VIIRS data are merged)
+        input_height (int):         Desired input height
+        input_width (int):          Desired input width
+        clipping_values (list):     Interval of min and max values for clipping
+        channels (list):            List of channels to use. [] to use all channels.
+        add_img_path (bool/str):    Optional: Path to image data to add (eg. for combining Sentinel2 and VIIRS)
+        standardize:                Optional: Whether or not to standardize image data (e.g. standardization is not needed when already
+                                    normalized Sentinel-2 and VIIRS data is merged)
     '''
 
     # Get Splits to Normalize Train/Val and Test separately

@@ -35,6 +35,20 @@ class DHS_preparation():
                  geo_wealth_path: str,
                  sustainlab_group_file: str
                  ):
+        '''        
+        Args:
+            floor_recode (dict): Mapping for floor type to int.
+            toilet_recode (dict): Mapping for toilet type to int.
+            water_recode (dict): Mapping for water type to int.
+            country_code_dict (dict): Mapping of DHS country code to country name.
+            features (list): Features (column names) to include for Asset Wealth calculation.
+            info (list): Names of columns that include information about the cluster which is not required for Asset Wealth calculation (e.g. Household ID).
+            dhs_survey_path (str): Path to DHS survey data.
+            wealth_path (str): Output path for wealth files.
+            shape_path (str): Path to DHS geoinformation.
+            geo_wealth_path (str): Output path for final wealth files including geoinformation.
+            sustainlab_group_file (str): Path to sustainlab group csv file.
+        '''
         self.floor_recode = floor_recode
         self.toilet_recode = toilet_recode
         self.water_recode = water_recode
@@ -48,6 +62,11 @@ class DHS_preparation():
         self.sustainlab_group_file = sustainlab_group_file
 
     def recode_and_format_dhs(self, filename: str):
+        '''Recode DHS survey data and calculate Asset Wealth.
+
+        Args:
+            filename: Filename of DHS survey csv
+        '''
         # load sas data to pandas dataframe
         survey_df, meta = pyreadstat.read_sas7bdat(os.path.join(self.dhs_survey_path, filename))
 
@@ -122,6 +141,13 @@ class DHS_preparation():
         wealth_df.to_csv(os.path.join(self.wealth_path, country + '_' + str(year) + '.csv'), index=False)
 
     def create_wealth_geo_df(self, shape_file: str):
+        '''Combine survey data including Asset Wealth with geocoordinates.
+
+        Args:
+            shape_file: Filename of DHS shapefile
+
+
+        '''
 
         # load shapefile to geopandas DataFrame
         dhs_geo_df = gpd.read_file(os.path.join(self.shape_path, shape_file))
@@ -150,6 +176,8 @@ class DHS_preparation():
         dhs_geo_df.to_csv(os.path.join(self.geo_wealth_path, wealth_file), index=False)
 
     def split_sustainlab_clusters(self):
+        '''Split sustainlab cluster csv into separate csv files. Creates one csv file per survey (country/year).
+        '''
         try:
             dhs_sustainlab_df = pd.read_csv(os.path.join(self.geo_wealth_path, self.sustainlab_group_file))
             # remove NaN values
@@ -186,6 +214,8 @@ class DHS_preparation():
 
 
 def main():
+    '''Recode dhs survey data and create label csv file for each survey including Asset Wealth and geocoordinates.
+    '''
     #### DEFINE VARIABLES
     floor_recode_df, meta = pyreadstat.read_dta('./floor_recode.dta')
     toilet_recode_df, meta = pyreadstat.read_dta('./toilet_recode.dta')
@@ -206,12 +236,12 @@ def main():
                 'FRIDGE', 'MOTORCYCLE', 'CAR', 'FLOOR', 'ROOMSPP', 'PHONE', 'CELLPHONE']  # ,'cellphone']
 
     info = ['HHID', 'YEAR']
-    dhs_survey_path = './dhs_household_data/'
-    wealth_path = './dhs_wealth/'
-    shape_path = './geo_data/'
-    dhs_surveys = [file for file in os.listdir('./dhs_household_data/') if file.endswith('.SAS7BDAT')]
-    geo_wealth_path = './gps_csv/'
-    sustainlab_group_file = 'dhs_clusters_sustainlab_group.csv'
+    dhs_survey_path = '/mnt/datadisk/data/surveys/asset/dhs_data/raw_data/household_data/'
+    wealth_path = '/mnt/datadisk/data/surveys/asset/dhs_data/label_data/'
+    shape_path = '/mnt/datadisk/data/surveys/asset/dhs_data/raw_data/geo_data/'
+    dhs_surveys = [file for directory in os.listdir('./dhs_household_data/') for file in directory if file.endswith('.SAS7BDAT')]
+    geo_wealth_path = '/mnt/datadisk/data/surveys/asset/dhs_data/label_data/'
+    sustainlab_group_file = '/mnt/datadisk/data/surveys/asset/dhs_data/dhs_clusters_sustainlab_group.csv'
 
     # initiate Class Object
     dhs_obj = DHS_preparation(floor_recode=floor_recode_dict,

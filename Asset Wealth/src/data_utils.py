@@ -14,14 +14,14 @@ AUTOTUNE = tf.data.AUTOTUNE
 # Calculate mean for each channel over all pixels for training set; for validation and test set you need to take
 # mean and std of training set as well as in real case scenarios you don't know them beforehand to calculate them
 def calc_mean(img_dir: str, img_list: list, input_height: int, input_width: int, clipping_values: list, channels: list):
-    '''
-    Calculate mean Pixel Values per Channel over all Input Images
+    '''Calculate mean pixel values per channel over all input images
+    
     Args:
-        img_dir (str): Path to Image Data
-        input_height (int): Pixel Height of Input
-        input_width (int): Pixel Width of Input
-        clipping_values (list): Interval of Min and Max Values for Clipping
-        channels (list):  Channels to use; [] if all Channels are to be used
+        img_dir (str): Path to image data
+        input_height (int): Pixel height of input
+        input_width (int): Pixel width of input
+        clipping_values (list): Interval of min and max values for clipping
+        channels (list):  Channels to use; [] if all channels are to be used
 
     Returns (np.array): Means of pixel values per channel
     '''
@@ -64,17 +64,17 @@ def calc_mean(img_dir: str, img_list: list, input_height: int, input_width: int,
 # Calculate standard deviation (note:mean function has to be executed beforehand as it is required as input)
 def calc_std(means, img_dir: str, img_list: list, input_height: str, input_width: str, clipping_values: list,
              channels: list):
-    '''
-    Calculate Standard Deviation Values per Channel over all Input Images
+    '''Calculate standard deviation values per channel over all input images
+    
     Args:
-        means (np.array): Result of calc_mean: Mean of Pixel Values for each Channel
-        img_dir (str): Path to Image Data
-        input_height (int): Pixel Height of Input
-        input_width (int): Pixel Width of Input
-        clipping_values (list): Interval of Min and Max Values for Clipping
-        channels (list):  Channels to use; [] if all Channels are to be used
+        means (np.array): Result of calc_mean: Mean of pixel values for each channel
+        img_dir (str): Path to image data
+        input_height (int): Pixel height of input
+        input_width (int): Pixel width of input
+        clipping_values (list): Interval of min and max values for clipping
+        channels (list):  Channels to use; [] if all channels are to be used
 
-    Returns (np.array): Standard deviation of Pixel Values per Channel
+    Returns (np.array): Standard deviation of pixel values per channel
     '''
 
     # Ensure all data are tif data in current directory
@@ -113,24 +113,24 @@ def calc_std(means, img_dir: str, img_list: list, input_height: str, input_width
     return stds
 
 def create_splits(img_dir: str, pre2015_path: str, wealth_path: str, urban_rural: str, subset=False):
-    '''
-    Create train/val and testsplit for Cross Validation.
+    '''Create train/val and testsplit for cross validation.
+    
     Args:
-        img_dir (str):      Path to Image Directory
-        pre2015_path(str):  Path to Test Images with corresponding Label dated older than 2015
-        wealth_path (str):  Path to Label CSV Files
-        urban_rural (str):  One of ['u','r','ur'] to choose whether to use only Urban/Rural Clusters or all Data
+        img_dir (str):      Path to image data
+        pre2015_path(str):  Path to test images with corresponding label dated older than 2015
+        wealth_path (str):  Path to label csv files
+        urban_rural (str):  One of ['u','r','ur'] to choose whether to use only urban/rural clusters or all data
         subset (bool):      Whether or not to use a subset (for testing)
 
     Returns:
-        X_train_val (list):         List containing Filenames for Train and Validation Split
-        X_test (list):              List containing Filenames for Test Split
-        y_train_val (np.ndarray):   Numpy Array containing Asset Wealth (Label Data) for Train and Validation Split
-        y_test (np.ndarray):        Numpy Array containing Asset Wealth (Label Data) for Test Split
+        X_train_val (list):         List containing filenames for train and validation split
+        X_test (list):              List containing filenames for test split
+        y_train_val (np.ndarray):   Numpy array containing Asset Wealth (label data) for train and validation split
+        y_test (np.ndarray):        Numpy array containing Asset Wealth (label data) for test split
 
-        If pre2015_path is also returns:
-        X_test_pre2015 (list):      List containing Filenames for Test Dataset with corresponding Label dated older than 2015
-        y_test_pre2015 (np.ndarray):Numpy Array containing Asset Wealth (Label Data) for Test Dataset (dated older than 2015)
+        If pre2015_path is set also returns:
+        X_test_pre2015 (list):      List containing filenames for test split with corresponding label dated older than 2015
+        y_test_pre2015 (np.ndarray):Numpy array containing Asset Wealth (label data) for test split (dated older than 2015)
     '''
 
     # Either create a subset of the data to check for possible bugs and errors
@@ -180,20 +180,20 @@ def create_splits(img_dir: str, pre2015_path: str, wealth_path: str, urban_rural
 
 def generator(img_dir: str, X: list, y: np.ndarray, batch_size: int, input_height: int, input_width: int,
               channel_size: int):
-    '''
-    Data generator to generate Label and Feature Batches.
+    '''Data generator to generate label and feature batches.
+    
     Args:
-        img_dir (str):      Path to Image Directory
-        X (list):           List containing Filenames of Split
-        y (np.ndarray):     Array containing Label Values of Split
-        batch_size (int):   Size of Training Batches
-        input_height (int): Pixel Height of Input
-        input_width (int):  Pixel Width of Input
-        channels (int):     Number of Channels
+        img_dir (str):      Path to image data
+        X (list):           List containing filenames of split
+        y (np.ndarray):     Array containing lbel values of split
+        batch_size (int):   Size of training batches
+        input_height (int): Pixel height of input
+        input_width (int):  Pixel width of input
+        channels (int):     Number of channels
 
     Returns
-        batch_x (np.ndarray): Feature Batch
-        batch_y (np.ndarray): Label Batch
+        batch_x (np.ndarray): Feature batch
+        batch_y (np.ndarray): Label batch
     '''
     assert all([i.endswith('.tif') for i in X])
 
@@ -233,13 +233,13 @@ def generator(img_dir: str, X: list, y: np.ndarray, batch_size: int, input_heigh
 
 
 def combine_wealth_dfs(wealth_csv_path: str):
-    '''
-    Combines all label csv files to one.
+    '''Combines all label csv files to one.
+    
     Args:
-        wealth_csv_path (str): Path to Cluster CSV Files
+        wealth_csv_path (str): Path to label csv files
 
     Returns:
-        complete_wealth_df (pd.DataFrame): Pandas Dataframe containing all Clusters
+        complete_wealth_df (pd.DataFrame): Pandas DataFrame containing all clusters
     '''
 
     # Get all Wealth CSV Files
@@ -256,14 +256,14 @@ def combine_wealth_dfs(wealth_csv_path: str):
 
 
 def get_label_for_img(wealth_df: pd.DataFrame, img_filename: str):
-    '''
-    Get Label Data for a Cluster based on the Filename.
+    '''Get label data for a cluster based on the filename.
+    
     Args:
-        wealth_df (pd.DataFrame):   Pandas Dataframe containing all Clusters
-        img_dir:                    Path to Image Directory
+        wealth_df (pd.DataFrame):   Pandas DataFrame containing all clusters
+        img_dir:                    Path to image data
 
     Returns:
-        wealth_sentinel_df:         Dataframe including the Asset Wealth Value
+        wealth_sentinel_df:         Pandas DataFrame including the Asset Wealth Value of the image
     '''
     #
     img_info_df = pd.DataFrame([list(get_img_coordinates(img_filename)) + [img_filename]],
@@ -277,24 +277,24 @@ def get_label_for_img(wealth_df: pd.DataFrame, img_filename: str):
 
 
 def get_img_coordinates(img: str):
-    '''
-    Extract the Cluster Coordinates from a given Filename.
+    '''Extract the cluster coordinates from a given filename.
+    
     Args:
-        img (str): Filename of Image
+        img (str): Filename of image
 
     Returns:
-        str, str : Latitude, Longitude
+        str, str : Latitude, longitude
 
     '''
     return img.split('_')[0], img.split('_')[1]
 
 
 def truncate(f, n):
-    '''
-    Truncates a float f to n decimal places without rounding
+    '''Truncates a float f to n decimal places without rounding.
+    
     Args:
-        f: float value
-        n: number of decimal places
+        f: Float value
+        n: Number of decimal places
     '''
     s = '{}'.format(f)
     if 'e' in s or 'E' in s:
@@ -303,66 +303,60 @@ def truncate(f, n):
     return '.'.join([i, (d + '0' * n)[:n]])
 
 def get_mean(wealth_df:pd.DataFrame):
-    '''
-    Calculate the Mean Value for WEALTH_INDEX column of a Pandas DataFrame
+    '''Calculate the mean value for WEALTH_INDEX column of a Pandas DataFrame.
 
     Args:
-        wealth_df: Pandas Dataframe containing at least a Column 'WEALTH_INDEX'
+        wealth_df: Pandas DataFrame containing at least a column 'WEALTH_INDEX'
 
     Returns:
         float: Mean Asset Wealth of DataFrame
     '''
     return wealth_df.WEALTH_INDEX.mean()
 def get_median(wealth_df:pd.DataFrame):
-    '''
-    Calculate the Median Value for WEALTH_INDEX column of a Pandas DataFrame
+    '''Calculate the Median Value for WEALTH_INDEX column of a Pandas DataFrame.
 
     Args:
-        wealth_df: Pandas Dataframe containing at least a Column 'WEALTH_INDEX'
+        wealth_df: Pandas Dataframe containing at least a column 'WEALTH_INDEX'
 
     Returns:
         float: Median Asset Wealth of DataFrame
     '''
     return wealth_df.WEALTH_INDEX.median()
 def get_std(wealth_df:pd.DataFrame):
-    '''
-    Calculate the Standard Deviation for WEALTH_INDEX column of a Pandas DataFrame
+    '''Calculate the Standard Deviation for WEALTH_INDEX column of a Pandas DataFrame.
 
     Args:
-        wealth_df: Pandas Dataframe containing at least a Column 'WEALTH_INDEX'
+        wealth_df: Pandas DataFrame containing at least a column 'WEALTH_INDEX'
 
     Returns:
         float: Mean Asset Wealth of DataFrame
     '''
     return wealth_df.WEALTH_INDEX.std()
 def get_var(wealth_df:pd.DataFrame):
-    '''
-    Calculate the Variance for WEALTH_INDEX column of a Pandas DataFrame
+    '''Calculate the Variance for WEALTH_INDEX column of a Pandas DataFrame.
 
     Args:
-        wealth_df: Pandas Dataframe containing at least a Column 'WEALTH_INDEX'
+        wealth_df: Pandas DataFrame containing at least a column 'WEALTH_INDEX'
 
     Returns:
         float: Mean Asset Wealth of DataFrame
     '''
     return wealth_df.WEALTH_INDEX.var()
 def get_skew(wealth_df:pd.DataFrame):
-    '''
-    Calculate the Skewness for WEALTH_INDEX column of a Pandas DataFrame
+    '''Calculate the Skewness for WEALTH_INDEX column of a Pandas DataFrame.
 
     Args:
-        wealth_df: Pandas Dataframe containing at least a Column 'WEALTH_INDEX'
+        wealth_df: Pandas DataFrame containing at least a column 'WEALTH_INDEX'
 
     Returns:
         float: Mean Asset Wealth of DataFrame
     '''
     return wealth_df.WEALTH_INDEX.skew()
 def get_kurtosis(wealth_df:pd.DataFrame):
-    '''
-    Calculate the Kurtosis for WEALTH_INDEX column of a Pandas DataFrame
+    '''Calculate the Kurtosis for WEALTH_INDEX column of a Pandas DataFrame.
 
     Args:
-        wealth_df: Pandas Dataframe containing at least a Column 'WEALTH_INDEX'
+        wealth_df: Pandas DataFrame containing at least a column 'WEALTH_INDEX'
 
     Returns:
         float: Mean Asset Wealth of DataFrame
@@ -373,9 +367,9 @@ def get_kurtosis(wealth_df:pd.DataFrame):
 
 def get_statistics(csv_path: str, timespan_a: list, countries: list, timespan_b=False,
                    timespan_c=False):
-    '''
-    Creates a Dictionary that includes statistic values per country year and combined per timespan.
-    The Dictionary has the following structure:
+    '''Creates a dictionary that includes statistic values per country year and combined per timespan.
+    
+    The dictionary has the following structure:
     statistics = {
     'country_year': [],
     'mean': [],
@@ -386,11 +380,11 @@ def get_statistics(csv_path: str, timespan_a: list, countries: list, timespan_b=
     'kurtosis': []
     }
     Args:
-        csv_path (str):         Path to Cluster CSV Files
-        timespan_a (list):      Timespan in Years e.g. [2012,2013,2014] to include
+        csv_path (str):         Path to label csv files
+        timespan_a (list):      Timespan in years e.g. [2012,2013,2014] to include
         countries (list):       Countries to include
-        timespan_b (bool/list): Optional: Second Timespan in Years e.g. [2015] to include
-        timespan_c (bool/list): Optional: Third Timespan in Years e.g. [2016, 2017,2018,2019,2020] to include
+        timespan_b (bool/list): Optional: Second timespan in years e.g. [2015] to include
+        timespan_c (bool/list): Optional: Third timespan in years e.g. [2016, 2017,2018,2019,2020] to include
 
     Returns:
         statistics (dict):      Dictionary including statistic values per country year and combined over timespan(s)
@@ -439,9 +433,8 @@ def get_statistics(csv_path: str, timespan_a: list, countries: list, timespan_b=
     return statistics
 
 def get_ur_statistics(csv_path:str, timespan_a:list, countries: list, timespan_b=False, timespan_c=False):
-    '''
-    Creates a Dictionary that includes statistic per region type (urban/rural) per timespan.
-    The Dictionary has the following keys:
+    '''Creates a dictionary that includes statistic per region type (urban/rural) per timespan.
+    The dictionary has the following keys:
     statistics = { 
     'year': [], 
     'ur': [], 
@@ -452,12 +445,13 @@ def get_ur_statistics(csv_path:str, timespan_a:list, countries: list, timespan_b
     'skewness': [],
     'kurtosis': []
     }
+    
     Args:
-        csv_path (str):         Path to Cluster CSV Files
-        timespan_a (list):      Timespan in Years e.g. [2012,2013,2014] to include
+        csv_path (str):         Path to label csv files
+        timespan_a (list):      Timespan in years e.g. [2012,2013,2014] to include
         countries (list):       Countries to include
-        timespan_b (bool/list): Optional: Second Timespan in Years e.g. [2015] to include
-        timespan_c (bool/list): Optional: Third Timespan in Years e.g. [2016, 2017,2018,2019,2020] to include
+        timespan_b (bool/list): Optional: Second timespan in Years e.g. [2015] to include
+        timespan_c (bool/list): Optional: Third timespan in Years e.g. [2016, 2017,2018,2019,2020] to include
 
     Returns:
         statistics (dict):      Dictionary including statistic values per region type (urban/rural) per timespan.

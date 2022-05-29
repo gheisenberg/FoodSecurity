@@ -3,7 +3,7 @@
 
 import sys
 
-sys.path.append("..")
+sys.path.append("../../../Asset Wealth")
 
 import os
 import functools
@@ -32,18 +32,19 @@ ee.Initialize()
 # Rural : 10 km Radius
 # Urban : 2 km Radius
 def bounding_box(loc, urban_rural, urban_radius, rural_radius):
-    '''
-    Function to get a square around point of interest
+    '''Function to get a square around point of interest.
     Rural : 10 km Radius
     Urban : 2 km Radius
+    
     Args:
-        loc(ee.Geometry.Point): Geolocation of Cluster (from DHS Survey)
-        urban_rural(int):       Binary Encoding for Region Type: 0 = urban, 1 = rural
-        urban_radius(int):      Radius around Coordinates for Urban Regions in Meter
-        rural_radius(int):      Radius around Coordinates for Rural Regions in Meter
+        loc(ee.Geometry.Point): Geolocation of cluster (from DHS survey)
+        urban_rural(int):       Binary encoding for type of region: 0 = urban, 1 = rural
+        urban_radius(int):      Radius around coordinates for Urban regions in meter
+        rural_radius(int):      Radius around coordinates for Rural regions in meter
+        
     Returns:
         intermediate_box (ee.Geometry):     bounding box around cluster coordinates
-                                            with a size of 10x10km for rural/ 2x2km for urban
+                                            with a size of 10x10km for rural/ 2x2km for Urban
     '''
     if urban_rural == 0 or urban_rural == '0':
         size = urban_radius
@@ -56,24 +57,24 @@ def bounding_box(loc, urban_rural, urban_radius, rural_radius):
 
 
 def get_image(cluster, survey_name, urban_radius, rural_radius):
-    '''
-    Extract Information about Cluster to get VIIRS Image for corresponding Year and Coordinates.
+    '''Extract Information about cluster to get Sentinel-2 image for corresponding year and coordinates.
+    
     Args:
-        cluster(DictReader object):    Information about the Cluster (Cluster number, Coordinates, Survey Name, etc.)
-        survey_name(str):           Name of the Survey (COUNTRY_YEAR)
-        urban_radius(int):          Radius around Coordinates for Urban Regions in Meter
-        rural_radius(int):          Radius around Coordinates for Rural Regions in Meter
-        country_code(str):          ISO Code for Survey Country (COUNTRY)
+        cluster(DictReader object):    Information about the Cluster (cluster number, coordinates, survey name, etc.)
+        survey_name(str):           Name of the survey (COUNTRY_YEAR)
+        urban_radius(int):          Radius around coordinates for Urban regions in meter
+        rural_radius(int):          Radius around coordinates for Rural regions in meter
+        country_code(str):          ISO code for survey country (COUNTRY)
         MAX_CLOUD_PROBABILITY(int): %
 
     Returns:
         Requests Image from Earth Engine. Files are named by the following pattern:
-            Latitude_Longitude-begin-end-country_r/u_sidelength
-            Koordinaten: 4 Nachkommastellen
-            Datumsformat: YYYYMMDD
-            Land: Offizielle 3 Buchstaben Abkürzung (ISO)
-            Rural und Urban: durch u bzw r
-            Side length: Seitenlänge (Größe) der Kachel in km mit einer Nachkommastelle
+            Latitude_Longitude_begin-end_COUNTRY_r/u_sidelength
+            coordinates: 4 Nachkommastellen
+            date format: YYYYMMDD
+            country: Official 3 letters acronym (ISO)
+            Rural/Urban: u or r
+            side length: Sidelength (size) of tile in km with one decimal place.
     '''
     # Get images collections
     viirs_img = ee.ImageCollection("NOAA/VIIRS/DNB/MONTHLY_V1/VCMSLCFG")
@@ -129,13 +130,13 @@ def get_image(cluster, survey_name, urban_radius, rural_radius):
 
 
 def get_survey_images(file_dir, survey_name, urban_radius, rural_radius):
-    '''
-    Get VIIRS Image for each Cluster and download from GoogleDrive.
+    '''Get VIIRS Image for each Cluster and download from GoogleDrive.
+    
     Args:
-        file_dir(str):              Path to DHS Survey CSV File
-        survey_name(str):           Name of the Survey (COUNTRY_YEAR)
-        urban_radius(int):          Radius around Coordinates for Urban Regions in Meter
-        rural_radius(int):          Radius around Coordinates for Rural Regions in Meter
+        file_dir(str):              Path to DHS survey csv file
+        survey_name(str):           Name of the survey (COUNTRY_YEAR)
+        urban_radius(int):          Radius around coordinates for Urban regions in meter
+        rural_radius(int):          Radius around coordinates for Rural regions in meter
     '''
     with open(file_dir, 'r') as read_obj:
         # pass the file object to DictReader() to get the DictReader object
@@ -162,10 +163,10 @@ def get_survey_images(file_dir, survey_name, urban_radius, rural_radius):
 
 
 def download_local(survey_dir):
-    '''
-    Download Images from GoogleDrive Folder.
+    '''Download images from GoogleDrive folder.
+    
     Args:
-        survey_dir(str): Output Directory for Download
+        survey_dir(str): Output directory for download
     '''
     # folder which want to download from Drive
     folder_id = gdrive_dir_viirs
@@ -190,14 +191,14 @@ def download_local(survey_dir):
 
 # Main functions for getting the viirs images; here: only the directory for each survey is created
 def viirs_img_survey(img_dir, csv_dir, viirs_done, urban_radius, rural_radius):
-    '''
-    Iterate over Survey CSVs and get VIIRS Images for each Cluster.
+    '''Iterate over survey csvs and get VIIRS images for each cluster.
+    
     Args:
-        img_dir(str):               Path to Directory where the VIIRS Images are stored
-        csv_dir(str):               Path to Directory where DHS CSV Files are stored
-        viirs_done(str):         Filepath for File to document for which Surveys were are already completed
-        urban_radius(int):          Radius around Coordinates for Urban Regions in Meter
-        rural_radius(int):          Radius around Coordinates for Rural Regions in Meter
+        img_dir(str):               Path to directory where VIIRS images are stored
+        csv_dir(str):               Path to directory where DHS csv files are stored
+        sentinel_done(str):         Filepath for file to document for which surveys were are already completed
+        urban_radius(int):          Radius around coordinates for Urban rgions in meter
+        rural_radius(int):          Radius around coordinates for Rural regions in meter
     '''
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)

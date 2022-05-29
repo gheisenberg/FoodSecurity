@@ -1,7 +1,7 @@
 from src.config import gpu_id
 import sys
 
-sys.path.append("..")
+sys.path.append("../../../Asset Wealth")
 import os
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -69,23 +69,23 @@ from src.config import early_stopping_patience
 def main(img_dir: str, csv_path: str, pre2015_path:str, model_name: str, k: int, 
          input_height: int, input_width: int, img_source: str, urban_rural: str, 
          channel_size: int, batch_size: int, epochs: int, subset: bool):
-    '''
-    Train a Model with the Parameters set in config.py.
+    '''Train a Model with the Parameters set in config.py.
+    
     Args:
-        img_dir (str): Path to Image Data
-        csv_path (str): Path to Cluster CSV Files
-        pre2015_path(str):  Path to Image Data older than 2015; if all Data is used for training this shoulde be False.
-        model_name (str): One of ['vgg19', 'resnet50'] to choose which Model is used
-        k (int): Number of Folds for Cross Validation
-        input_height (int): Pixel Height of input
-        input_width (int): Pixel Width of input
-        img_source (str): One of ['s2', 'viirs'] to choose whether Sentinel-2, VIIRS (nightlight) or combined Data is used
+        img_dir (str): Path to image data
+        csv_path (str): Path to label csv files
+        pre2015_path(str):  Path to image data older than 2015; if all data is used for training this should be False.
+        model_name (str): One of ['vgg19', 'resnet50'] to choose which model is used
+        k (int): Number of folds for cross validation
+        input_height (int): Pixel height of input
+        input_width (int): Pixel width of input
+        img_source (str): One of ['s2', 'viirs'] to choose whether Sentinel-2, VIIRS (nightlight) or combined data is used
         urban_rural (str): On of ['u','r','ur'] to choose whether only urban or only rural clusters are used
-        channels (list):  Channels to use; [] to use all Channels
-        channel_size (int): Number of Channels (3 for RGB (VIIRS), 13 for all Sentinel2 Channels, 14 for all Channels) !Nightlight channel is transformed to 3 channels for Model Compatibility
-        batch_size (int): Size of Training Batches
-        epochs (int): Number of Training Epochs
-        subset (bool): Whether or not to use a Subset to test the Process
+        channels (list):  Channels to use; [] to use all channels
+        channel_size (int): Number of channels (3 for RGB (VIIRS), 13 for all Sentinel-2 channels, 14 for all channels) !Nightlight channel is transformed to 3 channels for model compatibility
+        batch_size (int): Size of training batches
+        epochs (int): Number of training epochs
+        subset (bool): Whether or not to use a subset to test the process
     '''
 
     if pre2015_path: 

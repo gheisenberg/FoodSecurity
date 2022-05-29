@@ -46,8 +46,7 @@ class ResNet50v2_hyperspectral():
     # adapted from https://github.com/keras-team/keras/blob/master/keras/applications/resnet.py to fit
     # hyperspectral input images
     def load_resnet50v2(self):
-        '''
-        Returns a Resnet50v2 `keras.Model` instance fitted to Hyperspectral/RGB image input
+        '''Returns a Resnet-50v2 `keras.Model` instance fitted to hyperspectral/RGB image input.
         '''
 
         def ResNet(stack_fn,
@@ -59,6 +58,7 @@ class ResNet50v2_hyperspectral():
                    classifier_activation='softmax',
                    **kwargs):
             """Instantiates the ResNet, ResNetV2, and ResNeXt architecture.
+            
             Args:
             stack_fn: a function that returns output tensor for the
               stacked residual blocks.
@@ -90,6 +90,7 @@ class ResNet50v2_hyperspectral():
               When loading pretrained weights, `classifier_activation` can only
               be `None` or `"softmax"`.
             **kwargs: For backwards compatibility only.
+            
             Returns:
             A `keras.Model` instance.
             """
@@ -125,6 +126,7 @@ class ResNet50v2_hyperspectral():
 
         def block1(x, filters, kernel_size=3, stride=1, conv_shortcut=True, name=None):
             """A residual block.
+            
             Args:
             x: input tensor.
             filters: integer, filters of the bottleneck layer.
@@ -169,12 +171,14 @@ class ResNet50v2_hyperspectral():
 
         def stack1(x, filters, blocks, stride1=2, name=None):
             """A set of stacked residual blocks.
+            
             Args:
             x: input tensor.
             filters: integer, filters of the bottleneck layer in a block.
             blocks: integer, blocks in the stacked blocks.
             stride1: default 2, stride of the first layer in the first block.
             name: string, stack label.
+            
             Returns:
             Output tensor for the stacked blocks.
             """
@@ -185,6 +189,7 @@ class ResNet50v2_hyperspectral():
 
         def block2(x, filters, kernel_size=3, stride=1, conv_shortcut=False, name=None):
             """A residual block.
+            
             Args:
               x: input tensor.
               filters: integer, filters of the bottleneck layer.
@@ -193,6 +198,7 @@ class ResNet50v2_hyperspectral():
               conv_shortcut: default False, use convolution shortcut if True,
                 otherwise identity shortcut.
               name: string, block label.
+              
             Returns:
             Output tensor for the residual block.
             """
@@ -231,12 +237,14 @@ class ResNet50v2_hyperspectral():
 
         def stack2(x, filters, blocks, stride1=2, name=None):
             """A set of stacked residual blocks.
+            
             Args:
               x: input tensor.
               filters: integer, filters of the bottleneck layer in a block.
               blocks: integer, blocks in the stacked blocks.
               stride1: default 2, stride of the first layer in the first block.
               name: string, stack label.
+              
             Returns:
               Output tensor for the stacked blocks.
             """
@@ -254,6 +262,7 @@ class ResNet50v2_hyperspectral():
                    conv_shortcut=True,
                    name=None):
             """A residual block.
+            
             Args:
             x: input tensor.
             filters: integer, filters of the bottleneck layer.
@@ -263,6 +272,7 @@ class ResNet50v2_hyperspectral():
             conv_shortcut: default True, use convolution shortcut if True,
                 otherwise identity shortcut.
             name: string, block label.
+            
             Returns:
             Output tensor for the residual block.
             """
@@ -315,6 +325,7 @@ class ResNet50v2_hyperspectral():
 
         def stack3(x, filters, blocks, stride1=2, groups=32, name=None):
             """A set of stacked residual blocks.
+            
             Args:
             x: input tensor.
             filters: integer, filters of the bottleneck layer in a block.
@@ -322,6 +333,7 @@ class ResNet50v2_hyperspectral():
             stride1: default 2, stride of the first layer in the first block.
             groups: default 32, group size for grouped convolution.
             name: string, stack label.
+            
             Returns:
             Output tensor for the stacked blocks.
             """

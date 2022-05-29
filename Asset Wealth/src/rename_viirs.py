@@ -1,6 +1,6 @@
 import sys
 
-sys.path.append("..")
+sys.path.append("../../../Asset Wealth")
 
 import os
 from osgeo import gdal
@@ -19,8 +19,8 @@ from src.config import download_path_viirs
 from src.config import csv_path
 
 def get_center_coords(img_path=str):
-    '''
-    Get Center Coordinates of a GeoTIFF
+    '''Get center coordinates of a GeoTIFF.
+    
     Args:
         img_path (str): Path to GeoTIFF
 
@@ -58,19 +58,16 @@ def get_center_coords(img_path=str):
 
 
 def main(img_dir: str):
-    '''
-    Rename all VIIRS GeoTIFFS from DIS22 according to filename pattern:
-    Latitude_Longitude-begin-end-country_r/u_sidelength
-    Koordinaten: 4 Nachkommastellen
-    Datumsformat: YYYYMMDD
-    Land: Offizielle 3 Ziffern Abkürzung
-    Rural und Urban: durch u bzw r
-    Side length: Seitenlänge (Größe) der Kachel in km mit einer Nachkommastelle
+    '''Rename all VIIRS GeoTIFFs from DIS22 according to filename pattern:
+    Latitude_Longitude_begin-end_COUNTRY_r/u_sidelength
+    coordinates: 4 Nachkommastellen
+    date format: YYYYMMDD
+    country: Official 3 letters acronym (ISO)
+    Rural/Urban: u or r
+    side length: Sidelength (size) of tile in km with one decimal place.
+    
     Args:
         img_dir: Path to image data
-
-    Returns:
-
     '''
     img_list = [img for img in os.listdir(img_dir) if img.endswith('.tif')]
     wealth_df = combine_wealth_dfs(csv_path)

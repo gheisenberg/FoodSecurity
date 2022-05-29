@@ -1,3 +1,7 @@
+"""
+Configuration of variables for aquisition of satellite images and model training.
+"""
+
 # Data Paths
 ## Path to Label Data
 csv_path = "/mnt/datadisk/data/surveys/asset/dhs_data/label_data/"
