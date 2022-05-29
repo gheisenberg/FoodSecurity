@@ -4,7 +4,7 @@ Configuration of variables for aquisition of satellite images and model training
 
 # Data Paths
 ## Path to Label Data
-csv_path = "/mnt/datadisk/data/surveys/asset/dhs_data/label_data/"
+csv_path = "/mnt/datadisk/data/Projects/asset_wealth/surveys/dhs_data/label_data/"
 
 ##########################################################################################################################################
 #                                                                                                                                        #
@@ -12,8 +12,8 @@ csv_path = "/mnt/datadisk/data/surveys/asset/dhs_data/label_data/"
 #                                                                                                                                        #
 ##########################################################################################################################################
 
-gdrive_dir_s2 = "1Iin2ogx1qjFNNkuLWQTGMqJd-n_CQGae"
-gdrive_dir_viirs = "1gyoHDQ8aYVkm5b57uPrXeP6jzcqKF2-r"
+gdrive_dir_s2 = #GoogleDrive Directory ID
+gdrive_dir_viirs = #GoogleDrive Directory ID
 
 download_path_s2 = '/mnt/datadisk/data/Sentinel2/zips'
 download_path_viirs = '/mnt/datadisk/data/VIIRS/zips'
@@ -94,9 +94,9 @@ country_code_map = {"Afghanistan": "AFG", "Albania": "ALB", "Algeria": "DZA", "A
 gpu_id = "2"
 
 # Weights and Bias
-wandb_project = "Asset_Wealth",
-wandb_entity = "piastoermer",
-wandb_dir = "/mnt/datadisk/data/Sentinel2/"
+wandb_project = #weights and bias project name
+wandb_entity = #weights and bias username
+wandb_dir = "/mnt/datadisk/data/Projects/asset_wealth/run_data/wandb/"
 
 ##########################################################################################################################################
 #                                                                                                                                        #

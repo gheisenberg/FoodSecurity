@@ -11,9 +11,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn import preprocessing
 
-floor_recode_df, meta = pyreadstat.read_dta('/mnt/datadisk/data/surveys/asset/dhs_data/recode_tables/floor_recode.dta')
-toilet_recode_df, meta = pyreadstat.read_dta('/mnt/datadisk/data/surveys/asset/dhs_data/recode_tables/toilet_recode.dta')
-water_recode_df, meta = pyreadstat.read_dta('/mnt/datadisk/data/surveys/asset/dhs_data/recode_tables/water_recode.dta')
+floor_recode_df, meta = pyreadstat.read_dta('/mnt/datadisk/data/Projects/asset_wealth/surveys/dhs_data/recode_tables/floor_recode.dta')
+toilet_recode_df, meta = pyreadstat.read_dta('/mnt/datadisk/data/Projects/asset_wealth/surveys/dhs_data/recode_tables/toilet_recode.dta')
+water_recode_df, meta = pyreadstat.read_dta('/mnt/datadisk/data/Projects/asset_wealth/surveys/dhs_data/recode_tables/water_recode.dta')
 
 floor_recode_dict = floor_recode_df.set_index('floor_code').to_dict()['floor_qual']
 toilet_recode_dict = toilet_recode_df.set_index('toilet_code').to_dict()['toilet_qual']
@@ -236,12 +236,12 @@ def main():
                 'FRIDGE', 'MOTORCYCLE', 'CAR', 'FLOOR', 'ROOMSPP', 'PHONE', 'CELLPHONE']  # ,'cellphone']
 
     info = ['HHID', 'YEAR']
-    dhs_survey_path = '/mnt/datadisk/data/surveys/asset/dhs_data/raw_data/household_data/'
-    wealth_path = '/mnt/datadisk/data/surveys/asset/dhs_data/label_data/'
-    shape_path = '/mnt/datadisk/data/surveys/asset/dhs_data/raw_data/geo_data/'
+    dhs_survey_path = '/mnt/datadisk/data/Projects/asset_wealth/surveys/dhs_data/raw_data/household_data/'
+    wealth_path = '/mnt/datadisk/data/Projects/asset_wealth/surveys/dhs_data/label_data/'
+    shape_path = '/mnt/datadisk/data/Projects/asset_wealth/surveys/dhs_data/raw_data/geo_data/'
     dhs_surveys = [file for directory in os.listdir('./dhs_household_data/') for file in directory if file.endswith('.SAS7BDAT')]
-    geo_wealth_path = '/mnt/datadisk/data/surveys/asset/dhs_data/label_data/'
-    sustainlab_group_file = '/mnt/datadisk/data/surveys/asset/dhs_data/dhs_clusters_sustainlab_group.csv'
+    geo_wealth_path = '/mnt/datadisk/data/Projects/asset_wealth/surveys/dhs_data/label_data/'
+    sustainlab_group_file = '/mnt/datadisk/data/Projects/asset_wealth/surveys/dhs_data/dhs_clusters_sustainlab_group.csv'
 
     # initiate Class Object
     dhs_obj = DHS_preparation(floor_recode=floor_recode_dict,

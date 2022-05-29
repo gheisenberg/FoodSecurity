@@ -203,7 +203,7 @@ def main(img_dir: str, csv_path: str, pre2015_path:str, model_name: str, k: int,
         wandb.log({'MeanAbsolutePercentageError': evaluation[2]})
         wandb.log({'RootMeanSquaredError': evaluation[3]})
         wandb.log({'CosineSimilarity': evaluation[4]})
-        
+
         if pre2015_path:
             test_generator_func = partial(generator, pre2015_path, X_test_pre2015, y_test_pre2015, batch_size, input_height, input_width,
                                           channel_size)
@@ -215,11 +215,11 @@ def main(img_dir: str, csv_path: str, pre2015_path:str, model_name: str, k: int,
             # Evaluate on second testset
             evaluation = model.evaluate(test_ds)
 
-            wandb.log({'MeanSquaredError': evaluation[0]})
-            wandb.log({'MeanAbsoluteError': evaluation[1]})
-            wandb.log({'MeanAbsolutePercentageError': evaluation[2]})
-            wandb.log({'RootMeanSquaredError': evaluation[3]})
-            wandb.log({'CosineSimilarity': evaluation[4]})
+            wandb.log({'MeanSquaredError_2012_2014': evaluation[0]})
+            wandb.log({'MeanAbsoluteError_2012_2014': evaluation[1]})
+            wandb.log({'MeanAbsolutePercentageError_2012_2014': evaluation[2]})
+            wandb.log({'RootMeanSquaredError_2012_2014': evaluation[3]})
+            wandb.log({'CosineSimilarity_2012_2014': evaluation[4]})
             
         del model
         del train_ds
