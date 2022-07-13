@@ -1,0 +1,1244 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>src package &#8212; Asset Wealth Prognosis 06/01/2022 documentation</title>
+    
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+<link href="_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+
+    
+  <link rel="stylesheet"
+    href="_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" href="_static/styles/sphinx-book-theme.css?digest=62ba249389abaaa9ffc34bf36a076bdc1d65ee18" type="text/css" />
+    
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?digest=f31d14ad54b65d19161ba51d4ffff3a77ae00456"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Notebooks" href="notebooks.html" />
+    <link rel="prev" title="Documentation of Asset wealth forecast for African regions based on remote sensing data" href="index.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="60">
+<!-- Checkboxes to toggle the left sidebar -->
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle navigation sidebar">
+<label class="overlay overlay-navbar" for="__navigation">
+    <div class="visually-hidden">Toggle navigation sidebar</div>
+</label>
+<!-- Checkboxes to toggle the in-page toc -->
+<input type="checkbox" class="sidebar-toggle" name="__page-toc" id="__page-toc" aria-label="Toggle in-page Table of Contents">
+<label class="overlay overlay-pagetoc" for="__page-toc">
+    <div class="visually-hidden">Toggle in-page Table of Contents</div>
+</label>
+<!-- Headers at the top -->
+<div class="announcement header-item noprint"></div>
+<div class="header header-item noprint"></div>
+
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+<!-- Sidebar -->
+<div class="bd-sidebar noprint" id="site-navigation">
+    <div class="bd-sidebar__content">
+        <div class="bd-sidebar__top"><div class="navbar-brand-box">
+    <a class="navbar-brand text-wrap" href="index.html">
+      
+      
+      
+      <h1 class="site-logo" id="site-title">Asset Wealth Prognosis 06/01/2022 documentation</h1>
+      
+    </a>
+</div><form class="bd-search d-flex align-items-center" action="search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item active">
+        <p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  See Documentation of Scripts and Notebooks:
+ </span>
+</p>
+<ul class="current nav bd-sidenav">
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   src package
+  </a>
+ </li>
+ <li class="toctree-l1 has-children">
+  <a class="reference internal" href="notebooks.html">
+   Notebooks
+  </a>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <label for="toctree-checkbox-1">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul>
+   <li class="toctree-l2">
+    <a class="reference internal" href="asset_wealth_analysis.html">
+     Statistical Analysis of Asset Wealth
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="asset_wealth_prognosis.html">
+     Predict Asset Wealth for Testset and Mozambique
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="split_geotiffs_for_preprocessing.html">
+     Split and copy raw GeoTIFFs to separate directories for preprocessing
+    </a>
+   </li>
+  </ul>
+ </li>
+</ul>
+
+    </div>
+</nav></div>
+        <div class="bd-sidebar__bottom">
+             <!-- To handle the deprecated key -->
+            
+            <div class="navbar_extra_footer">
+            Theme by the <a href="https://ebp.jupyterbook.org">Executable Book Project</a>
+            </div>
+            
+        </div>
+    </div>
+    <div id="rtd-footer-container"></div>
+</div>
+
+
+          
+
+
+          
+<!-- A tiny helper pixel to detect if we've scrolled -->
+<div class="sbt-scroll-pixel-helper"></div>
+<!-- Main content -->
+<div class="col py-0 content-container">
+    
+    <div class="header-article row sticky-top noprint">
+        
+
+
+
+<div class="col py-1 d-flex header-article-main">
+    <div class="header-article__left">
+        
+        <label for="__navigation"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="right"
+title="Toggle navigation"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-bars"></i>
+  </span>
+
+</label>
+
+        
+    </div>
+    <div class="header-article__right">
+<button onclick="toggleFullScreen()"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="bottom"
+title="Fullscreen mode"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+<div class="menu-dropdown menu-dropdown-download-buttons">
+  <button class="headerbtn menu-dropdown__trigger"
+      aria-label="Download this page">
+      <i class="fas fa-download"></i>
+  </button>
+  <div class="menu-dropdown__content">
+    <ul>
+      <li>
+        <a href="_sources/src.rst.txt"
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="left"
+title="Download source file"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="headerbtn__text-container">.rst</span>
+</a>
+
+      </li>
+      
+      <li>
+        
+<button onclick="printPdf(this)"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="left"
+title="Print to PDF"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="headerbtn__text-container">.pdf</span>
+</button>
+
+      </li>
+      
+    </ul>
+  </div>
+</div>
+<label for="__page-toc"
+  class="headerbtn headerbtn-page-toc"
+  
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-list"></i>
+  </span>
+
+</label>
+
+    </div>
+</div>
+
+<!-- Table of contents -->
+<div class="col-md-3 bd-toc show noprint">
+    <div class="tocsection onthispage pt-5 pb-3">
+        <i class="fas fa-list"></i> Contents
+    </div>
+    <nav id="bd-toc-nav" aria-label="Page">
+        <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#submodules">
+   Submodules
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.config">
+   src.config module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.data_utils">
+   src.data_utils module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.dhs_preparation">
+   src.dhs_preparation module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.ee_sentinel">
+   src.ee_sentinel module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.ee_viirs">
+   src.ee_viirs module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.preprocess_geodata">
+   src.preprocess_geodata module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.rename_viirs">
+   src.rename_viirs module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.resnet50">
+   src.resnet50 module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.train">
+   src.train module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.vgg19">
+   src.vgg19 module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src">
+   Module contents
+  </a>
+ </li>
+</ul>
+
+    </nav>
+</div>
+    </div>
+    <div class="article row">
+        <div class="col pl-md-3 pl-lg-5 content-container">
+            <!-- Table of contents that is only displayed when printing the page -->
+            <div id="jb-print-docs-body" class="onlyprint">
+                <h1>src package</h1>
+                <!-- Table of contents -->
+                <div id="print-main-content">
+                    <div id="jb-print-toc">
+                        
+                        <div>
+                            <h2> Contents </h2>
+                        </div>
+                        <nav aria-label="Page">
+                            <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#submodules">
+   Submodules
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.config">
+   src.config module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.data_utils">
+   src.data_utils module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.dhs_preparation">
+   src.dhs_preparation module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.ee_sentinel">
+   src.ee_sentinel module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.ee_viirs">
+   src.ee_viirs module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.preprocess_geodata">
+   src.preprocess_geodata module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.rename_viirs">
+   src.rename_viirs module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.resnet50">
+   src.resnet50 module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.train">
+   src.train module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src.vgg19">
+   src.vgg19 module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-src">
+   Module contents
+  </a>
+ </li>
+</ul>
+
+                        </nav>
+                    </div>
+                </div>
+            </div>
+            <main id="main-content" role="main">
+                
+              <div>
+                
+  <section id="src-package">
+<h1>src package<a class="headerlink" href="#src-package" title="Permalink to this headline">#</a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">#</a></h2>
+</section>
+<section id="module-src.config">
+<span id="src-config-module"></span><h2>src.config module<a class="headerlink" href="#module-src.config" title="Permalink to this headline">#</a></h2>
+<p>Configuration of variables for aquisition of satellite images and model training.</p>
+</section>
+<section id="module-src.data_utils">
+<span id="src-data-utils-module"></span><h2>src.data_utils module<a class="headerlink" href="#module-src.data_utils" title="Permalink to this headline">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.calc_mean">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">calc_mean</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">img_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_height</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clipping_values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.calc_mean" title="Permalink to this definition">#</a></dt>
+<dd><p>Calculate mean pixel values per channel over all input images</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>img_dir</strong> (<em>str</em>) – Path to image data</p></li>
+<li><p><strong>input_height</strong> (<em>int</em>) – Pixel height of input</p></li>
+<li><p><strong>input_width</strong> (<em>int</em>) – Pixel width of input</p></li>
+<li><p><strong>clipping_values</strong> (<em>list</em>) – Interval of min and max values for clipping</p></li>
+<li><p><strong>channels</strong> (<em>list</em>) – Channels to use; [] if all channels are to be used</p></li>
+</ul>
+</dd>
+</dl>
+<p>Returns (np.array): Means of pixel values per channel</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.calc_std">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">calc_std</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">means</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">img_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">img_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_height</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clipping_values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.calc_std" title="Permalink to this definition">#</a></dt>
+<dd><p>Calculate standard deviation values per channel over all input images</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>means</strong> (<em>np.array</em>) – Result of calc_mean: Mean of pixel values for each channel</p></li>
+<li><p><strong>img_dir</strong> (<em>str</em>) – Path to image data</p></li>
+<li><p><strong>input_height</strong> (<em>int</em>) – Pixel height of input</p></li>
+<li><p><strong>input_width</strong> (<em>int</em>) – Pixel width of input</p></li>
+<li><p><strong>clipping_values</strong> (<em>list</em>) – Interval of min and max values for clipping</p></li>
+<li><p><strong>channels</strong> (<em>list</em>) – Channels to use; [] if all channels are to be used</p></li>
+</ul>
+</dd>
+</dl>
+<p>Returns (np.array): Standard deviation of pixel values per channel</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.combine_wealth_dfs">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">combine_wealth_dfs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wealth_csv_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.combine_wealth_dfs" title="Permalink to this definition">#</a></dt>
+<dd><p>Combines all label csv files to one.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>wealth_csv_path</strong> (<em>str</em>) – Path to label csv files</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Pandas DataFrame containing all clusters</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>complete_wealth_df (pd.DataFrame)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.create_splits">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">create_splits</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre2015_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wealth_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urban_rural</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.create_splits" title="Permalink to this definition">#</a></dt>
+<dd><p>Create train/val and testsplit for cross validation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>img_dir</strong> (<em>str</em>) – Path to image data</p></li>
+<li><p><strong>pre2015_path</strong> (<em>str</em>) – Path to test images with corresponding label dated older than 2015</p></li>
+<li><p><strong>wealth_path</strong> (<em>str</em>) – Path to label csv files</p></li>
+<li><p><strong>urban_rural</strong> (<em>str</em>) – One of [‘u’,’r’,’ur’] to choose whether to use only urban/rural clusters or all data</p></li>
+<li><p><strong>subset</strong> (<em>bool</em>) – Whether or not to use a subset (for testing)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>List containing filenames for train and validation split
+X_test (list):              List containing filenames for test split
+y_train_val (np.ndarray):   Numpy array containing Asset Wealth (label data) for train and validation split
+y_test (np.ndarray):        Numpy array containing Asset Wealth (label data) for test split</p>
+<p>If pre2015_path is set also returns:
+X_test_pre2015 (list):      List containing filenames for test split with corresponding label dated older than 2015
+y_test_pre2015 (np.ndarray):Numpy array containing Asset Wealth (label data) for test split (dated older than 2015)</p>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>X_train_val (list)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.generator">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_height</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.generator" title="Permalink to this definition">#</a></dt>
+<dd><p>Data generator to generate label and feature batches.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>img_dir</strong> (<em>str</em>) – Path to image data</p></li>
+<li><p><strong>X</strong> (<em>list</em>) – List containing filenames of split</p></li>
+<li><p><strong>y</strong> (<em>np.ndarray</em>) – Array containing lbel values of split</p></li>
+<li><p><strong>batch_size</strong> (<em>int</em>) – Size of training batches</p></li>
+<li><p><strong>input_height</strong> (<em>int</em>) – Pixel height of input</p></li>
+<li><p><strong>input_width</strong> (<em>int</em>) – Pixel width of input</p></li>
+<li><p><strong>channels</strong> (<em>int</em>) – Number of channels</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Returns</dt><dd><p>batch_x (np.ndarray): Feature batch
+batch_y (np.ndarray): Label batch</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.get_img_coordinates">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">get_img_coordinates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.get_img_coordinates" title="Permalink to this definition">#</a></dt>
+<dd><p>Extract the cluster coordinates from a given filename.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>img</strong> (<em>str</em>) – Filename of image</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Latitude, longitude</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>str, str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.get_kurtosis">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">get_kurtosis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wealth_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.core.frame.DataFrame</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.get_kurtosis" title="Permalink to this definition">#</a></dt>
+<dd><p>Calculate the Kurtosis for WEALTH_INDEX column of a Pandas DataFrame.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>wealth_df</strong> – Pandas DataFrame containing at least a column ‘WEALTH_INDEX’</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Mean Asset Wealth of DataFrame</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.get_label_for_img">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">get_label_for_img</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wealth_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.core.frame.DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">img_filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.get_label_for_img" title="Permalink to this definition">#</a></dt>
+<dd><p>Get label data for a cluster based on the filename.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>wealth_df</strong> (<em>pd.DataFrame</em>) – Pandas DataFrame containing all clusters</p></li>
+<li><p><strong>img_dir</strong> – Path to image data</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Pandas DataFrame including the Asset Wealth Value of the image</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>wealth_sentinel_df</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.get_mean">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">get_mean</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wealth_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.core.frame.DataFrame</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.get_mean" title="Permalink to this definition">#</a></dt>
+<dd><p>Calculate the mean value for WEALTH_INDEX column of a Pandas DataFrame.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>wealth_df</strong> – Pandas DataFrame containing at least a column ‘WEALTH_INDEX’</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Mean Asset Wealth of DataFrame</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.get_median">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">get_median</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wealth_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.core.frame.DataFrame</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.get_median" title="Permalink to this definition">#</a></dt>
+<dd><p>Calculate the Median Value for WEALTH_INDEX column of a Pandas DataFrame.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>wealth_df</strong> – Pandas Dataframe containing at least a column ‘WEALTH_INDEX’</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Median Asset Wealth of DataFrame</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.get_skew">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">get_skew</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wealth_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.core.frame.DataFrame</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.get_skew" title="Permalink to this definition">#</a></dt>
+<dd><p>Calculate the Skewness for WEALTH_INDEX column of a Pandas DataFrame.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>wealth_df</strong> – Pandas DataFrame containing at least a column ‘WEALTH_INDEX’</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Mean Asset Wealth of DataFrame</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.get_statistics">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">get_statistics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timespan_a</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">countries</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timespan_b</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timespan_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.get_statistics" title="Permalink to this definition">#</a></dt>
+<dd><p>Creates a dictionary that includes statistic values per country year and combined per timespan.</p>
+<p>The dictionary has the following structure:
+statistics = {
+‘country_year’: [],
+‘mean’: [],
+‘median’: [],
+‘std’: [],
+‘var’: [],
+‘skewness’: [],
+‘kurtosis’: []
+}
+:param csv_path: Path to label csv files
+:type csv_path: str
+:param timespan_a: Timespan in years e.g. [2012,2013,2014] to include
+:type timespan_a: list
+:param countries: Countries to include
+:type countries: list
+:param timespan_b: Optional: Second timespan in years e.g. [2015] to include
+:type timespan_b: bool/list
+:param timespan_c: Optional: Third timespan in years e.g. [2016, 2017,2018,2019,2020] to include
+:type timespan_c: bool/list</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Dictionary including statistic values per country year and combined over timespan(s)</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>statistics (dict)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.get_std">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">get_std</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wealth_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.core.frame.DataFrame</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.get_std" title="Permalink to this definition">#</a></dt>
+<dd><p>Calculate the Standard Deviation for WEALTH_INDEX column of a Pandas DataFrame.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>wealth_df</strong> – Pandas DataFrame containing at least a column ‘WEALTH_INDEX’</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Mean Asset Wealth of DataFrame</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.get_ur_statistics">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">get_ur_statistics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timespan_a</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">countries</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timespan_b</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timespan_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.get_ur_statistics" title="Permalink to this definition">#</a></dt>
+<dd><p>Creates a dictionary that includes statistic per region type (urban/rural) per timespan.
+The dictionary has the following keys:
+statistics = {
+‘year’: [],
+‘ur’: [],
+‘mean’: [],
+‘median’: [],
+‘std’: [],
+‘var’: [],
+‘skewness’: [],
+‘kurtosis’: []
+}</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>csv_path</strong> (<em>str</em>) – Path to label csv files</p></li>
+<li><p><strong>timespan_a</strong> (<em>list</em>) – Timespan in years e.g. [2012,2013,2014] to include</p></li>
+<li><p><strong>countries</strong> (<em>list</em>) – Countries to include</p></li>
+<li><p><strong>timespan_b</strong> (<em>bool/list</em>) – Optional: Second timespan in Years e.g. [2015] to include</p></li>
+<li><p><strong>timespan_c</strong> (<em>bool/list</em>) – Optional: Third timespan in Years e.g. [2016, 2017,2018,2019,2020] to include</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Dictionary including statistic values per region type (urban/rural) per timespan.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>statistics (dict)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.get_var">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">get_var</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wealth_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.core.frame.DataFrame</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.get_var" title="Permalink to this definition">#</a></dt>
+<dd><p>Calculate the Variance for WEALTH_INDEX column of a Pandas DataFrame.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>wealth_df</strong> – Pandas DataFrame containing at least a column ‘WEALTH_INDEX’</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Mean Asset Wealth of DataFrame</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.data_utils.truncate">
+<span class="sig-prename descclassname"><span class="pre">src.data_utils.</span></span><span class="sig-name descname"><span class="pre">truncate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data_utils.truncate" title="Permalink to this definition">#</a></dt>
+<dd><p>Truncates a float f to n decimal places without rounding.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>f</strong> – Float value</p></li>
+<li><p><strong>n</strong> – Number of decimal places</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-src.dhs_preparation">
+<span id="src-dhs-preparation-module"></span><h2>src.dhs_preparation module<a class="headerlink" href="#module-src.dhs_preparation" title="Permalink to this headline">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="src.dhs_preparation.DHS_preparation">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">src.dhs_preparation.</span></span><span class="sig-name descname"><span class="pre">DHS_preparation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">floor_recode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">toilet_recode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">water_recode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">country_code_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">features</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dhs_survey_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wealth_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geo_wealth_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sustainlab_group_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.dhs_preparation.DHS_preparation" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="src.dhs_preparation.DHS_preparation.create_wealth_geo_df">
+<span class="sig-name descname"><span class="pre">create_wealth_geo_df</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shape_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.dhs_preparation.DHS_preparation.create_wealth_geo_df" title="Permalink to this definition">#</a></dt>
+<dd><p>Combine survey data including Asset Wealth with geocoordinates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>shape_file</strong> – Filename of DHS shapefile</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.dhs_preparation.DHS_preparation.recode_and_format_dhs">
+<span class="sig-name descname"><span class="pre">recode_and_format_dhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.dhs_preparation.DHS_preparation.recode_and_format_dhs" title="Permalink to this definition">#</a></dt>
+<dd><p>Recode DHS survey data and calculate Asset Wealth.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>filename</strong> – Filename of DHS survey csv</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="src.dhs_preparation.DHS_preparation.split_sustainlab_clusters">
+<span class="sig-name descname"><span class="pre">split_sustainlab_clusters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#src.dhs_preparation.DHS_preparation.split_sustainlab_clusters" title="Permalink to this definition">#</a></dt>
+<dd><p>Split sustainlab cluster csv into separate csv files. Creates one csv file per survey (country/year).</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.dhs_preparation.main">
+<span class="sig-prename descclassname"><span class="pre">src.dhs_preparation.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#src.dhs_preparation.main" title="Permalink to this definition">#</a></dt>
+<dd><p>Recode dhs survey data and create label csv file for each survey including Asset Wealth and geocoordinates.</p>
+</dd></dl>
+
+</section>
+<section id="module-src.ee_sentinel">
+<span id="src-ee-sentinel-module"></span><h2>src.ee_sentinel module<a class="headerlink" href="#module-src.ee_sentinel" title="Permalink to this headline">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="src.ee_sentinel.bounding_box">
+<span class="sig-prename descclassname"><span class="pre">src.ee_sentinel.</span></span><span class="sig-name descname"><span class="pre">bounding_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ee.geometry.Geometry.Point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urban_rural</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urban_radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rural_radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.ee_sentinel.bounding_box" title="Permalink to this definition">#</a></dt>
+<dd><p>Function to get a square around point of interest.
+Rural : 10 km Radius
+Urban : 2 km Radius</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>loc</strong> (<em>ee.Geometry.Point</em>) – Geolocation of cluster (from DHS survey)</p></li>
+<li><p><strong>urban_rural</strong> (<em>int</em>) – Binary encoding for type of region: 0 = urban, 1 = rural</p></li>
+<li><p><strong>urban_radius</strong> (<em>int</em>) – Radius around coordinates for Urban regions in meter</p></li>
+<li><p><strong>rural_radius</strong> (<em>int</em>) – Radius around coordinates for Rural regions in meter</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>bounding box around cluster coordinates</dt><dd><p>with a size of 10x10km for rural/ 2x2km for Urban</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>intermediate_box (ee.Geometry)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.ee_sentinel.download_local">
+<span class="sig-prename descclassname"><span class="pre">src.ee_sentinel.</span></span><span class="sig-name descname"><span class="pre">download_local</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">survey_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.ee_sentinel.download_local" title="Permalink to this definition">#</a></dt>
+<dd><p>Download images from GoogleDrive folder.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>survey_dir</strong> (<em>str</em>) – Output directory for download</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.ee_sentinel.get_image">
+<span class="sig-prename descclassname"><span class="pre">src.ee_sentinel.</span></span><span class="sig-name descname"><span class="pre">get_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cluster</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">object</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urban_radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rural_radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">country_code</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MAX_CLOUD_PROBABILITY</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.ee_sentinel.get_image" title="Permalink to this definition">#</a></dt>
+<dd><p>Extract Information about cluster to get Sentinel-2 image for corresponding year and coordinates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cluster</strong> (<em>DictReader object</em>) – Information about the Cluster (cluster number, coordinates, survey name, etc.)</p></li>
+<li><p><strong>survey_name</strong> (<em>str</em>) – Name of the survey (COUNTRY_YEAR)</p></li>
+<li><p><strong>urban_radius</strong> (<em>int</em>) – Radius around coordinates for Urban regions in meter</p></li>
+<li><p><strong>rural_radius</strong> (<em>int</em>) – Radius around coordinates for Rural regions in meter</p></li>
+<li><p><strong>country_code</strong> (<em>str</em>) – ISO code for survey country (COUNTRY)</p></li>
+<li><p><strong>MAX_CLOUD_PROBABILITY</strong> (<em>int</em>) – <p>%</p>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Latitude_Longitude_begin-end_COUNTRY_r/u_sidelength
+coordinates: 4 Nachkommastellen
+date format: YYYYMMDD
+country: Official 3 letters acronym (ISO)
+Rural/Urban: u or r
+side length: Sidelength (size) of tile in km with one decimal place.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Requests Image from Earth Engine. Files are named by the following pattern</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.ee_sentinel.get_survey_images">
+<span class="sig-prename descclassname"><span class="pre">src.ee_sentinel.</span></span><span class="sig-name descname"><span class="pre">get_survey_images</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">survey_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urban_radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rural_radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MAX_CLOUD_PROBABILITY</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.ee_sentinel.get_survey_images" title="Permalink to this definition">#</a></dt>
+<dd><p>Get Sentinel-2 image for each Cluster and download from GoogleDrive.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>file_dir</strong> (<em>str</em>) – Path to DHS survey csv file</p></li>
+<li><p><strong>survey_name</strong> (<em>str</em>) – Name of the survey (COUNTRY_YEAR)</p></li>
+<li><p><strong>urban_radius</strong> (<em>int</em>) – Radius around coordinates for Urban regions in meter</p></li>
+<li><p><strong>rural_radius</strong> (<em>int</em>) – Radius around coordinates for Rural regions in meter</p></li>
+<li><p><strong>MAX_CLOUD_PROBABILITY</strong> (<em>int</em>) – <p>%</p>
+</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.ee_sentinel.maskClouds">
+<span class="sig-prename descclassname"><span class="pre">src.ee_sentinel.</span></span><span class="sig-name descname"><span class="pre">maskClouds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ee.image.Image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MAX_CLOUD_PROBABILITY</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.ee_sentinel.maskClouds" title="Permalink to this definition">#</a></dt>
+<dd><p>Masking of clouds.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>img</strong> (<em>ee.Image</em>) – Sentinel-2 image retrieved from ee</p></li>
+<li><p><strong>MAX_CLOUD_PROBABILITY</strong> (<em>int</em>) – <p>%</p>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>CloudMasked GoogleEarthEngine image</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>ee.Image</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.ee_sentinel.sentinel_img_survey">
+<span class="sig-prename descclassname"><span class="pre">src.ee_sentinel.</span></span><span class="sig-name descname"><span class="pre">sentinel_img_survey</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">csv_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sentinel_done</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urban_radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rural_radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MAX_CLOUD_PROBABILITY</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.ee_sentinel.sentinel_img_survey" title="Permalink to this definition">#</a></dt>
+<dd><p>Iterate over survey csvs and get Sentine-2 images for each cluster.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>img_dir</strong> (<em>str</em>) – Path to directory where Sentinel-2 images are stored</p></li>
+<li><p><strong>csv_dir</strong> (<em>str</em>) – Path to directory where DHS csv files are stored</p></li>
+<li><p><strong>sentinel_done</strong> (<em>str</em>) – Filepath for file to document for which surveys were are already completed</p></li>
+<li><p><strong>urban_radius</strong> (<em>int</em>) – Radius around coordinates for Urban rgions in meter</p></li>
+<li><p><strong>rural_radius</strong> (<em>int</em>) – Radius around coordinates for Rural regions in meter</p></li>
+<li><p><strong>MAX_CLOUD_PROBABILITY</strong> (<em>int</em>) – <p>%</p>
+</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-src.ee_viirs">
+<span id="src-ee-viirs-module"></span><h2>src.ee_viirs module<a class="headerlink" href="#module-src.ee_viirs" title="Permalink to this headline">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="src.ee_viirs.bounding_box">
+<span class="sig-prename descclassname"><span class="pre">src.ee_viirs.</span></span><span class="sig-name descname"><span class="pre">bounding_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urban_rural</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urban_radius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rural_radius</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.ee_viirs.bounding_box" title="Permalink to this definition">#</a></dt>
+<dd><p>Function to get a square around point of interest.
+Rural : 10 km Radius
+Urban : 2 km Radius</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>loc</strong> (<em>ee.Geometry.Point</em>) – Geolocation of cluster (from DHS survey)</p></li>
+<li><p><strong>urban_rural</strong> (<em>int</em>) – Binary encoding for type of region: 0 = urban, 1 = rural</p></li>
+<li><p><strong>urban_radius</strong> (<em>int</em>) – Radius around coordinates for Urban regions in meter</p></li>
+<li><p><strong>rural_radius</strong> (<em>int</em>) – Radius around coordinates for Rural regions in meter</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>bounding box around cluster coordinates</dt><dd><p>with a size of 10x10km for rural/ 2x2km for Urban</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>intermediate_box (ee.Geometry)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.ee_viirs.download_local">
+<span class="sig-prename descclassname"><span class="pre">src.ee_viirs.</span></span><span class="sig-name descname"><span class="pre">download_local</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">survey_dir</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.ee_viirs.download_local" title="Permalink to this definition">#</a></dt>
+<dd><p>Download images from GoogleDrive folder.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>survey_dir</strong> (<em>str</em>) – Output directory for download</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.ee_viirs.get_image">
+<span class="sig-prename descclassname"><span class="pre">src.ee_viirs.</span></span><span class="sig-name descname"><span class="pre">get_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cluster</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">survey_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urban_radius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rural_radius</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.ee_viirs.get_image" title="Permalink to this definition">#</a></dt>
+<dd><p>Extract Information about cluster to get Sentinel-2 image for corresponding year and coordinates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cluster</strong> (<em>DictReader object</em>) – Information about the Cluster (cluster number, coordinates, survey name, etc.)</p></li>
+<li><p><strong>survey_name</strong> (<em>str</em>) – Name of the survey (COUNTRY_YEAR)</p></li>
+<li><p><strong>urban_radius</strong> (<em>int</em>) – Radius around coordinates for Urban regions in meter</p></li>
+<li><p><strong>rural_radius</strong> (<em>int</em>) – Radius around coordinates for Rural regions in meter</p></li>
+<li><p><strong>country_code</strong> (<em>str</em>) – ISO code for survey country (COUNTRY)</p></li>
+<li><p><strong>MAX_CLOUD_PROBABILITY</strong> (<em>int</em>) – <p>%</p>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Latitude_Longitude_begin-end_COUNTRY_r/u_sidelength
+coordinates: 4 Nachkommastellen
+date format: YYYYMMDD
+country: Official 3 letters acronym (ISO)
+Rural/Urban: u or r
+side length: Sidelength (size) of tile in km with one decimal place.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Requests Image from Earth Engine. Files are named by the following pattern</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.ee_viirs.get_survey_images">
+<span class="sig-prename descclassname"><span class="pre">src.ee_viirs.</span></span><span class="sig-name descname"><span class="pre">get_survey_images</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">survey_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urban_radius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rural_radius</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.ee_viirs.get_survey_images" title="Permalink to this definition">#</a></dt>
+<dd><p>Get VIIRS Image for each Cluster and download from GoogleDrive.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>file_dir</strong> (<em>str</em>) – Path to DHS survey csv file</p></li>
+<li><p><strong>survey_name</strong> (<em>str</em>) – Name of the survey (COUNTRY_YEAR)</p></li>
+<li><p><strong>urban_radius</strong> (<em>int</em>) – Radius around coordinates for Urban regions in meter</p></li>
+<li><p><strong>rural_radius</strong> (<em>int</em>) – Radius around coordinates for Rural regions in meter</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.ee_viirs.viirs_img_survey">
+<span class="sig-prename descclassname"><span class="pre">src.ee_viirs.</span></span><span class="sig-name descname"><span class="pre">viirs_img_survey</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">csv_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">viirs_done</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urban_radius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rural_radius</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.ee_viirs.viirs_img_survey" title="Permalink to this definition">#</a></dt>
+<dd><p>Iterate over survey csvs and get VIIRS images for each cluster.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>img_dir</strong> (<em>str</em>) – Path to directory where VIIRS images are stored</p></li>
+<li><p><strong>csv_dir</strong> (<em>str</em>) – Path to directory where DHS csv files are stored</p></li>
+<li><p><strong>sentinel_done</strong> (<em>str</em>) – Filepath for file to document for which surveys were are already completed</p></li>
+<li><p><strong>urban_radius</strong> (<em>int</em>) – Radius around coordinates for Urban rgions in meter</p></li>
+<li><p><strong>rural_radius</strong> (<em>int</em>) – Radius around coordinates for Rural regions in meter</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-src.preprocess_geodata">
+<span id="src-preprocess-geodata-module"></span><h2>src.preprocess_geodata module<a class="headerlink" href="#module-src.preprocess_geodata" title="Permalink to this headline">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="src.preprocess_geodata.main">
+<span class="sig-prename descclassname"><span class="pre">src.preprocess_geodata.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ur</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">year</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_height</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clipping_values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_img_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standardize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.preprocess_geodata.main" title="Permalink to this definition">#</a></dt>
+<dd><p>Preprocessing of GeoTIFFs.
+Preprocessing includes slicing to desired input size and standardizing the image data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>img_path</strong> (<em>str</em>) – Path to image data</p></li>
+<li><p><strong>ur</strong> (<em>str</em>) – ‘u’ for urban, ‘r’ for rural</p></li>
+<li><p><strong>year</strong> (<em>str</em>) – timespan (2012_2014 / 2016_2020) or all data</p></li>
+<li><p><strong>input_height</strong> (<em>int</em>) – Desired input height</p></li>
+<li><p><strong>input_width</strong> (<em>int</em>) – Desired input width</p></li>
+<li><p><strong>clipping_values</strong> (<em>list</em>) – Interval of min and max values for clipping</p></li>
+<li><p><strong>channels</strong> (<em>list</em>) – List of channels to use. [] to use all channels.</p></li>
+<li><p><strong>add_img_path</strong> (<em>bool/str</em>) – Optional: Path to image data to add (eg. for combining Sentinel2 and VIIRS)</p></li>
+<li><p><strong>standardize</strong> – Optional: Whether or not to standardize image data (e.g. standardization is not needed when already
+normalized Sentinel-2 and VIIRS data is merged)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.preprocess_geodata.slice_to_input_size">
+<span class="sig-prename descclassname"><span class="pre">src.preprocess_geodata.</span></span><span class="sig-name descname"><span class="pre">slice_to_input_size</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">array</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_height</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.preprocess_geodata.slice_to_input_size" title="Permalink to this definition">#</a></dt>
+<dd><p>Slice image array to desired input shape.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>array</strong> (<em>np.ndarray</em>) – Numpy array containing image data</p></li>
+<li><p><strong>input_height</strong> (<em>int</em>) – Uniform image height to slice to</p></li>
+<li><p><strong>input_width</strong> (<em>int</em>) – Uniform image width to slice to</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Numpy array containing image data in shape of input height/width and Bandwidth</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array (np.array)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.preprocess_geodata.standardize_resize">
+<span class="sig-prename descclassname"><span class="pre">src.preprocess_geodata.</span></span><span class="sig-name descname"><span class="pre">standardize_resize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">img_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_height</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clipping_values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">means</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_img_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standardize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.preprocess_geodata.standardize_resize" title="Permalink to this definition">#</a></dt>
+<dd><p>Standardize and resize GeoTIFFs.
+Standardization is performed per band using Standard Scaler.
+Resizing is performed by slicing to the center of the image in shape of provided input Size.
+For VIIRS images, the band is tripled to fit RGB input shape of common CNNs.
+Standardized and resized images are stored in a new GeoTIFF.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>img</strong> (<em>str</em>) – Filename of image to normalize and resize</p></li>
+<li><p><strong>img_path</strong> (<em>str</em>) – Path to image data</p></li>
+<li><p><strong>input_height</strong> (<em>int</em>) – Desired input height</p></li>
+<li><p><strong>input_width</strong> (<em>int</em>) – Desired input width</p></li>
+<li><p><strong>clipping_values</strong> (<em>list</em>) – Interval of min and max values for clipping</p></li>
+<li><p><strong>means</strong> (<em>bool/np.ndarray</em>) – Optional: Result of calc_mean: Mean of pixel values for each channel</p></li>
+<li><p><strong>stds</strong> (<em>bool/np.ndarray</em>) – Optional: Result of calc_mean: Standard deviation of pixel values for each channel</p></li>
+<li><p><strong>add_img_path</strong> (<em>bool/str</em>) – Optional: Path to image data to add (eg. for combining Sentinel-2 and VIIRS)</p></li>
+<li><p><strong>standardize</strong> (<em>bool</em>) – Optional: Whether or not to standardize image data (e.g. standardization is not needed when already normalized Sentinel-2 and VIIRS data is merged)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-src.rename_viirs">
+<span id="src-rename-viirs-module"></span><h2>src.rename_viirs module<a class="headerlink" href="#module-src.rename_viirs" title="Permalink to this headline">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="src.rename_viirs.get_center_coords">
+<span class="sig-prename descclassname"><span class="pre">src.rename_viirs.</span></span><span class="sig-name descname"><span class="pre">get_center_coords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_path=&lt;class</span> <span class="pre">'str'&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.rename_viirs.get_center_coords" title="Permalink to this definition">#</a></dt>
+<dd><p>Get center coordinates of a GeoTIFF.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>img_path</strong> (<em>str</em>) – Path to GeoTIFF</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Center Longitude Value of Image
+lat (float): Center Latitude Value of Image</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>long (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="src.rename_viirs.main">
+<span class="sig-prename descclassname"><span class="pre">src.rename_viirs.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.rename_viirs.main" title="Permalink to this definition">#</a></dt>
+<dd><p>Rename all VIIRS GeoTIFFs from DIS22 according to filename pattern:
+Latitude_Longitude_begin-end_COUNTRY_r/u_sidelength
+coordinates: 4 Nachkommastellen
+date format: YYYYMMDD
+country: Official 3 letters acronym (ISO)
+Rural/Urban: u or r
+side length: Sidelength (size) of tile in km with one decimal place.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>img_dir</strong> – Path to image data</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-src.resnet50">
+<span id="src-resnet50-module"></span><h2>src.resnet50 module<a class="headerlink" href="#module-src.resnet50" title="Permalink to this headline">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="src.resnet50.ResNet50v2_hyperspectral">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">src.resnet50.</span></span><span class="sig-name descname"><span class="pre">ResNet50v2_hyperspectral</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_w</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">img_h</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.resnet50.ResNet50v2_hyperspectral" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="src.resnet50.ResNet50v2_hyperspectral.load_resnet50v2">
+<span class="sig-name descname"><span class="pre">load_resnet50v2</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#src.resnet50.ResNet50v2_hyperspectral.load_resnet50v2" title="Permalink to this definition">#</a></dt>
+<dd><p>Returns a Resnet-50v2 <cite>keras.Model</cite> instance fitted to hyperspectral/RGB image input.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-src.train">
+<span id="src-train-module"></span><h2>src.train module<a class="headerlink" href="#module-src.train" title="Permalink to this headline">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="src.train.main">
+<span class="sig-prename descclassname"><span class="pre">src.train.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">csv_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre2015_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_height</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">img_source</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urban_rural</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epochs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.train.main" title="Permalink to this definition">#</a></dt>
+<dd><p>Train a Model with the Parameters set in config.py.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>img_dir</strong> (<em>str</em>) – Path to image data</p></li>
+<li><p><strong>csv_path</strong> (<em>str</em>) – Path to label csv files</p></li>
+<li><p><strong>pre2015_path</strong> (<em>str</em>) – Path to image data older than 2015; if all data is used for training this should be False.</p></li>
+<li><p><strong>model_name</strong> (<em>str</em>) – One of [‘vgg19’, ‘resnet50’] to choose which model is used</p></li>
+<li><p><strong>k</strong> (<em>int</em>) – Number of folds for cross validation</p></li>
+<li><p><strong>input_height</strong> (<em>int</em>) – Pixel height of input</p></li>
+<li><p><strong>input_width</strong> (<em>int</em>) – Pixel width of input</p></li>
+<li><p><strong>img_source</strong> (<em>str</em>) – One of [‘s2’, ‘viirs’] to choose whether Sentinel-2, VIIRS (nightlight) or combined data is used</p></li>
+<li><p><strong>urban_rural</strong> (<em>str</em>) – On of [‘u’,’r’,’ur’] to choose whether only urban or only rural clusters are used</p></li>
+<li><p><strong>channels</strong> (<em>list</em>) – Channels to use; [] to use all channels</p></li>
+<li><p><strong>channel_size</strong> (<em>int</em>) – Number of channels (3 for RGB (VIIRS), 13 for all Sentinel-2 channels, 14 for all channels) !Nightlight channel is transformed to 3 channels for model compatibility</p></li>
+<li><p><strong>batch_size</strong> (<em>int</em>) – Size of training batches</p></li>
+<li><p><strong>epochs</strong> (<em>int</em>) – Number of training epochs</p></li>
+<li><p><strong>subset</strong> (<em>bool</em>) – Whether or not to use a subset to test the process</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-src.vgg19">
+<span id="src-vgg19-module"></span><h2>src.vgg19 module<a class="headerlink" href="#module-src.vgg19" title="Permalink to this headline">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="src.vgg19.VGG19_hyperspectral">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">src.vgg19.</span></span><span class="sig-name descname"><span class="pre">VGG19_hyperspectral</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_w</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">img_h</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.vgg19.VGG19_hyperspectral" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="src.vgg19.VGG19_hyperspectral.load_vgg19">
+<span class="sig-name descname"><span class="pre">load_vgg19</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#src.vgg19.VGG19_hyperspectral.load_vgg19" title="Permalink to this definition">#</a></dt>
+<dd><p>Returns a VGG19 <cite>keras.Model</cite> instance fitted to hyperspectral/RGB image input.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-src">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-src" title="Permalink to this headline">#</a></h2>
+</section>
+</section>
+
+
+              </div>
+              
+            </main>
+            <footer class="footer-article noprint">
+                
+    <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+    <a class='left-prev' id="prev-link" href="index.html" title="previous page">
+        <i class="fas fa-angle-left"></i>
+        <div class="prev-next-info">
+            <p class="prev-next-subtitle">previous</p>
+            <p class="prev-next-title">Documentation of Asset wealth forecast for African regions based on remote sensing data</p>
+        </div>
+    </a>
+    <a class='right-next' id="next-link" href="notebooks.html" title="next page">
+    <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Notebooks</p>
+    </div>
+    <i class="fas fa-angle-right"></i>
+    </a>
+</div>
+            </footer>
+        </div>
+    </div>
+    <div class="footer-content row">
+        <footer class="col footer"><p>
+  
+    By Pia Störmer<br/>
+  
+      &copy; Copyright 2022, Pia Störmer.<br/>
+</p>
+        </footer>
+    </div>
+    
+</div>
+
+
+      </div>
+    </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
+
+
+  </body>
+</html>
