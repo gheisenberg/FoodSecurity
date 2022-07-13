@@ -23,6 +23,7 @@ def annot_max(x, y, ax=None):
             ax=plt.gca()
         ax.annotate(text, xy=(xmax, ymax))
 
+
 def plot_history(history, save_path, verbose=1):
     """
     Visualize the history object

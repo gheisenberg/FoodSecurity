@@ -97,9 +97,9 @@ def generator(x_path, labels, batch_size, input_height, input_width, clipping_va
         array = array[:,:input_height,:input_width]
 
         #Normalize the array
-        if normalize:
-            array = ((array.transpose(1,2,0)-means)/stds).transpose(2, 0, 1)
-            assert not np.any(np.isnan(array)), "Normalize"
+        # if normalize:
+        #     array = ((array.transpose(1,2,0)-means)/stds).transpose(2, 0, 1)
+        #     assert not np.any(np.isnan(array)), "Normalize"
         # Add to batch
         batch_x[batch_ele] = array
         #print('Array', type(array), '\n', array)

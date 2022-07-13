@@ -20,6 +20,7 @@ from functools import partial
 #disable_eager_execution()
 # warnings.filterwarnings("ignore")
 # tf.autograph.set_verbosity(1)
+import sys
 
 ###priv imports
 import config as cfg
@@ -275,7 +276,7 @@ def IDG_creator(train_x, train_y, val_x, val_y, test_x, test_y, augmentation_d, 
         datagen_train, datagen_val, datagen_test (Keras ImageDataGenerator): ...
     """
     if cfg.verbose:
-        print('Shapes trainX, trainY, valX, valY', train_x.shape, train_y.shape, val_x.shape, val_y.shape,
+        print('Shapes trainX, trainY, valX, valY, testX, testY', train_x.shape, train_y.shape, val_x.shape, val_y.shape,
               test_x.shape, test_y.shape)
     # merge options and feed them to IDG
     datagen_train = tf.keras.preprocessing.image.ImageDataGenerator(**{**augmentation_d, **normalization_d})
@@ -336,10 +337,16 @@ def main():
 
     #iterating over multiple normalization and augmentation Settings of IDG (Test routine)
     for normalization_key, normalization_d in cfg.IDG_normalization_d.items():
-        train_ds, val_ds, test_ds = generator_n_dataset_creator(train_path, val_path, test_path, labels_df)
+        t_begin = time.time()
+        with strategy.scope():
+            train_ds, val_ds, test_ds = generator_n_dataset_creator(train_path, val_path, test_path, labels_df)
         if cfg.generator == 'ImageDataGenerator':
-            [(train_x, train_y), (val_x, val_y), (test_x, test_y)], t_ele, t_transform, t_ges_transform = \
-                nnu.transform_data_for_ImageDataGenerator([train_ds, val_ds, test_ds])
+            with strategy.scope():
+                [(train_x, train_y), (val_x, val_y), (test_x, test_y)], t_ele, t_transform, t_ges_transform = \
+                    nnu.transform_data_for_ImageDataGenerator([train_ds, val_ds, test_ds])
+        load_time = time.time() - t_begin
+        if cfg.verbose:
+            print('Loaded data in (s)', load_time)
         for aug_key, augmentation_d in cfg.IDG_augmentation_settings_d.items():
             if cfg.verbose:
                 print('normalization_key', normalization_key)
@@ -391,14 +398,16 @@ def main():
             # val_ds = val_ds.with_options(options)
             # test_ds = test_ds.with_options(options)
             history = model.fit(
-                train_ds,
-                class_weight=class_weights,
-                validation_data=val_ds,
-                epochs=cfg.epochs,
-                callbacks=callbacks_l)
+                                datagen_train.flow(train_x, train_y, batch_size=cfg.batch_size, shuffle=True),
+                                class_weight=class_weights,
+                                validation_data=datagen_val.flow(val_x, val_y,
+                                                                 batch_size=cfg.batch_size, shuffle=True),
+                                #datagen.flow_from_dataframe(val_ds),
+                                epochs=cfg.epochs,
+                                callbacks=callbacks_l)
             fit_time = time.time() - t_begin
             if cfg.verbose:
-                print('Time to fit model', fit_time)
+                print('Time to fit model (s)', fit_time)
 
             # Save history as pickle
             with open(os.path.join(run_path, 'trainHistory'), 'wb') as file_pi:
@@ -409,87 +418,81 @@ def main():
 
             ###Visualize results
             # show and/or save augmented images
-            if cfg.show_augmented_images or cfg.save_augmented_images:
-                for datag, add_name_img in zip([datagen_train, datagen_val, datagen_test], ['train', 'val', 'test']):
-                    datag = datag.flow(val_x, val_y, batch_size=cfg.batch_size)
-                    augmented_images = [datag[0][0][i] for i in range(3)] + [datag[0][0][i] for i in range(3)] + \
-                                       [datag[0][0][i] for i in range(3)]
-                    visualizations.plot_images(augmented_images, augmented_images_path + '/' + add_name_img,
-                                               show=cfg.show_augmented_images)
+            if cfg.save_augmented_images:
+                for datag, (x, y), add_name_img in zip([datagen_train, datagen_val, datagen_test],
+                                                       [(train_x, train_y), (val_x, val_y), (test_x, test_y)],
+                                                       ['train', 'val', 'test']):
+                    datagen = datag.flow(x, y, batch_size=1, save_to_dir=augmented_images_path,
+                                         save_prefix=add_name_img)
+                    for nr1, i in enumerate(datagen):
+                        if nr1 >= cfg.save_augmented_images:
+                            break
                 if cfg.verbose:
-                    print('saved/shown augmented images', augmentation_d)
+                    print('saved augmented images to', augmented_images_path)
 
             if cfg.verbose:
                 print(history.history.keys())
             #summarize statistics
             additional_reports_d = {'max epoch': len(history.history['val_loss']),
-                                    'min val loss': min(history.history['val_loss']),
-                                    'min val loss epoch':
-                                        history.history['val_loss'].index(min(history.history['val_loss'])),
-                                    'val loss at break': history.history['val_loss'][-1],
                                     'max val acc': max(history.history['val_categorical_accuracy']),
                                     'max val acc epoch':
                                         history.history['val_categorical_accuracy'].index(max(
                                             history.history['val_categorical_accuracy'])),
-                                    'val acc at break': history.history['val_categorical_accuracy'][-1]}
+                                    'val acc at break': history.history['val_categorical_accuracy'][-1],
+                                    'fit time': fit_time, 'Time per epoch': fit_time / len(history.history['val_loss'])}
             #visualize history
             visualizations.plot_history(history, run_path)
 
             ### Evaluation
             # Evaluate the model via the test dataset
-            t_begin = time.time()
-            sk_metrics_d = {}
-            for nr2 in range(2):
-                add_name = ''
-                if nr2 == 1:
-                    add_name = '_highest_val_acc'
-                    if cfg.reload_best_weights_for_eval:
-                        model.load_weights(modelcheckpoint_path)
-                    else:
-                        break
-                print("Evaluate on test data", add_name)
-                results = model.evaluate(datagen_test.flow(test_x, test_y))
+            # (highest validation accuracy seems to always perform best)
+            if cfg.reload_best_weights_for_eval:
+                model.load_weights(modelcheckpoint_path)
+            else:
+                break
+            if cfg.verbose:
+                print("Evaluate on test data")
+            results = model.evaluate(datagen_test.flow(test_x, test_y))
+            if cfg.verbose:
                 print("test loss, test acc:", results)
-                additional_reports_d['test_loss' + add_name] = results[0]
-                additional_reports_d['test_acc' + add_name] = results[1]
-                if nr2 == 0:
-                    additional_reports_d['fit time'] = fit_time
-                    additional_reports_d['Time per epoch'] = fit_time / additional_reports_d['max epoch']
+            additional_reports_d['test_acc'] = results[1]
 
-                if cfg.verbose:
-                    print('Time passed Evaluation', time.time() - t_begin)
-                # Create Confusion matrix for the test dataset
-                # Get np array of predicted labels and true labels for test dataset
-                test_true_list = []
-                test_pred = []
-                for j in datagen_test.flow(test_x, test_y):
-                    ynew = model.predict(j[0])
-                    pred = np.argmax(ynew, axis=1)
-                    for ele in pred:
-                        test_pred.append(ele)
-                    test_gold = np.argmax(j[1], axis=1)
-                    for ele in test_gold:
-                        test_true_list.append(ele)
+            # Create Confusion matrix for the test dataset
+            # Get np array of predicted labels and true labels for test dataset
+            test_true_list = []
+            test_pred = []
+            batches = 0
+            for j in datagen_test.flow(test_x, test_y, batch_size=int(cfg.batch_size)):
+                batches += 1
+                ynew = model.predict(j[0])
+                pred = np.argmax(ynew, axis=1)
+                for ele in pred:
+                    test_pred.append(ele)
+                test_gold = np.argmax(j[1], axis=1)
+                for ele in test_gold:
+                    test_true_list.append(ele)
+                if batches >= len(test_x) / int(cfg.batch_size):
+                    break
 
-                test_prediction = np.array(test_pred)
-                test_true = np.array(test_true_list)
+            test_prediction = np.array(test_pred)
+            test_true = np.array(test_true_list)
 
-                # Confusion matrix
-                cm_plot_labels = ['piped water', 'groundwater', 'bottled water']
-                visualizations.plot_CM(test_true, test_prediction, cm_plot_labels, run_path +
-                                       'ConfusionMatrix' + add_name)
-                # create sklearn report (for f1 score and more)
-                classification_d = classification_report(test_true, test_prediction, output_dict=True,
-                                                         target_names=cm_plot_labels)
-                print('test classification', classification_d)
-
-                # transform for one row
-                for class_name, dic in classification_d.items():
-                    try:
-                        for metric_n, v in dic.items():
-                            sk_metrics_d[class_name + ': ' + metric_n + add_name] = v
-                    except AttributeError:
-                        sk_metrics_d[class_name + add_name] = dic
+            # Confusion matrix
+            cm_plot_labels = ['piped water', 'groundwater', 'bottled water']
+            visualizations.plot_CM(test_true, test_prediction, cm_plot_labels, run_path +
+                                   'ConfusionMatrix')
+            # create sklearn report (for f1 score and more)
+            classification_d = classification_report(test_true, test_prediction, output_dict=True,
+                                                     target_names=cm_plot_labels)
+            print('test classification', classification_d)
+            sk_metrics_d = {}
+            # transform for one row
+            for class_name, dic in classification_d.items():
+                try:
+                    for metric_n, v in dic.items():
+                        sk_metrics_d[class_name + ': ' + metric_n] = v
+                except AttributeError:
+                    sk_metrics_d[class_name] = dic
 
             # write report (it's a bit messy right now!)
             report_d = {**additional_reports_d, **sk_metrics_d, **{'run_name': run_name}}

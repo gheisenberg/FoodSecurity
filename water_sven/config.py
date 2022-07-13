@@ -4,15 +4,20 @@ import os
 #                                   Performance Settings, Multi-GPU-usage
 ########################################################################################################################
 # list of gpus to use
-# (only use 2 GPUs tops!) Otherwise I will kill your process!
+# (only use 1 GPU!) Otherwise I will kill your process!
 # We all need to calculate on this machine - might get lowered to one, if there are bottlenecks!
-gpus = [0, 1]
+gpus = [0]
 
 ########################################################################################################################
 #                                           Verbosity settings
 ########################################################################################################################
 #handles verbosity of the program (use 1 or above to get feedback!)
 verbose = 1
+#turn off cryptic warnings, Note that you might miss important warnings! If unexpected stuff is happening turn it on!
+#https://github.com/tensorflow/tensorflow/issues/27023
+#Thanks @Mrs Przibylla
+#'1' = Infos, '2' = warnings, '3' = Errors
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 ########################################################################################################################
 #                                           Base Folder
@@ -20,10 +25,10 @@ verbose = 1
 ### The folder where the project path and data is located, subfolder paths will be automatically generated
 base_folder = '/mnt/datadisk/data/'
 # The folder where your project files are located
-prj_folder = '/mnt/datadisk/data/Projects/water_dis22/'
+prj_folder = '/mnt/datadisk/data/Projects/water_dis22_ss22/'
 # train history will be saved in a subfolder of the project path (base_folder + /projects/water/)
 # assign a name according to your group, to separate your results from all others! Create this folder manually!
-trainHistory_subname = 'trainHistory_test'
+trainHistory_subname = 'trainHistory_sven'
 
 ########################################################################################################################
 #                                            Run Name
@@ -52,7 +57,7 @@ channel_size = len(channels)
 #                                  Basic neural network parameters
 ########################################################################################################################
 ### Maximum amount of epochs
-epochs = 100
+epochs = 50
 ### Learning rate (to start with - might get dynamically lowered with callback options)
 lr = 1e-4
 # How many pictures are used to train before readjusting weights
@@ -81,7 +86,7 @@ input_shape = ((batch_size, 200, 200, channel_size), (batch_size, num_labels))
 cnn_settings_d = {'include_top': False, 'weights': 'imagenet', 'input_tensor': None,
                    'input_shape': (input_shape[0][1], input_shape[0][2], input_shape[0][3]), 'pooling': False, 'classes': 3}
                   #'classifier_activation': 'softmax'}
-# Use dropout on top layers - use 0 to 100 (percent)
+# Use dropout on top layers - use 0 to 1
 dropout_top_layers = 0
 # Make weights trainable. Unfreezes layers beginning at top layers. Use 0 to 100 (percent)
 unfreeze_layers_perc = 100
@@ -135,14 +140,15 @@ zca_whitening_perc_fit = 1
 # augmentation only gets applied to train data
 IDG_augmentation_settings_d = {'subset1': {
         #'brightness_range': [0.9, 1.1], #Tuple or list of two floats. Range for picking a brightness shift value from.
-        #'shear_range': 0.2, #Float. Shear Intensity (Shear angle in counter-clockwise direction in degrees)
-        'zoom_range': 0.2,
+        'shear_range': 0.2, #Float. Shear Intensity (Shear angle in counter-clockwise direction in degrees)
+        #'zoom_range': 0.2,
         #'channel_shift_range': 0.3,
         'horizontal_flip': True,
         'vertical_flip': True,
-        'rotation_range': 20, #Int. Degree range for random rotations.
+        #'rotation_range': 20, #Int. Degree range for random rotations.
         'width_shift_range': 0.2,
-        'height_shift_range': 0.2}}
+        'height_shift_range': 0.2
+        }}
 
 
 ########################################################################################################################
@@ -161,7 +167,6 @@ load_model_weights = False
 # overrides other weights imports (e.g. imagenet in Keras models)
 reload_best_weights_for_eval = True
 ### You can show and/or save your augmented images to become an idea of what actually goes into the model
-# 3 different images with 3 different augmentations are saged/printed
-show_augmented_images = False
-save_augmented_images = True
+# False or Number of images (for train, val and test gen)
+save_augmented_images = 15
 tensorboard = True
