@@ -12,7 +12,7 @@ gpus = [0, 1, 2]
 ########################################################################################################################
 #                                           Verbosity settings
 ########################################################################################################################
-#handles verbosity of thzooe program (use 1 or above to get feedback!)
+#handles verbosity of the program (use 1 or above to get feedback!)
 verbose = 1
 
 ########################################################################################################################
@@ -24,7 +24,7 @@ base_folder = '/mnt/datadisk/data/'
 prj_folder = '/mnt/datadisk/data/Projects/water/'
 # train history will be saved in a subfolder of the project path (base_folder + /projects/water/)
 # assign a name according to your group, to separate your results from all others! Create this folder manually!
-trainHistory_subname = 'trainHistory_final2_pca_dist/'
+trainHistory_subname = 'trainHistory_aug_cat/'
 labels_f = os.path.join(prj_folder, 'water_labels_urban.csv')
 
 ########################################################################################################################
@@ -41,77 +41,16 @@ run_name_custom_string = ''
 #                                       Dataset parameters
 ########################################################################################################################
 # 3 Main label categories - everything else is thrown away
-# label_name = ['source of drinking water (weights): max']
+# # label_name = ['source of drinking water (weights): max']
 # label_name = ['source of drinking water (simplified): max', 'source of drinking water (categorized by type): max',
+#                 'source of drinking water (categorized urban): max']
 # label_name = ['source of drinking water (categorized): max', 'source of drinking water (weights): max',
 #               'location of source for water (refurbished): max']
-# label_name = {'time to get to water source (minutes)': {'max value': 31, 'drop max value': True},
-# label_name = {'time to get to water source (refurbished)': {'max value': 31, 'drop max value': True},
-#               # 'time to get to water source + penalty': {'max value': 41, 'drop max value': True},
-#               'time to get to water source (refurbished) + penalty': {'max value': 41, 'drop max value': True}}
-label_name = {
-    'Std Deviation: PCA w_weighting urban0': {'label normalization': 'Z',
-                                              'label transform': 'boxcox',
-                                            'max value': 1.9, 'drop min max value': True,
-                                                                           'min value': -2.5
-             },
-    # 'PCA w_weighting urban1': {'reverse label': True, 'max value': 2., 'drop min max value': True,
-    #                            'min value': -2.},
-    # 'PCA w_weighting urban2': {'max value': 2.5, 'drop min max value': True,
-    #                            'min value': -2.5},
-    # 'PCA w_weighting urban3': {'max value': 2.5, 'drop min max value': False,
-    #                            'min value': -2.5},
-    # 'time to get to water source (refurbished)0': {'max value': 31, 'min value': 0,
-    #                                               'drop min max value': True,
-    #                                               'label normalization': 'Z'}, #bad
-    # 'time to get to water source (refurbished)1': {'max value': 31, 'min value': 0,
-    #                                               'drop min max value': False,
-    #                                               'label normalization': 'Z'}, #best1
-    # # 'time to get to water source (refurbished)2': {'max value': 31, 'min value': 0,
-    # #                                               'drop min max value': True}, #bad
-    # 'time to get to water source (refurbished)5': {'max value': 31, 'min value': 0,
-    #                                               'drop min max value': False}, #ok
-    # 'time to get to water source (refurbished)6': {'max value': 31, 'min value': 0,
-    #                                                 'label normalization': '0,1',
-    #                                                'drop min max value': False}, #ok
-    # 'time to get to water source (refurbished)7': {'max value': 31, 'min value': 0,
-    #                                                 'label normalization': '0,1',
-    #                                                'label transform': 'boxcox',
-    #                                                'drop min max value': False},#ok
-    # 'time to get to water source (refurbished)8': {'label normalization': '0,1',
-    #                                                'label transform': 'boxcox'},
-    # 'time to get to water source (refurbished)4': {'label normalization': 'Z',
-    #                                                'label transform': 'boxcox'},
-    # 'time to get to water source (refurbished)3': {'max value': 31, 'min value': 0,
-    #                                                'drop min max value': False,
-    #                                                'label normalization': 'Z',
-    #                                                'label transform': 'boxcox'},#best2
-    # 'time to get to water source (refurbished)4': {'max value': 31, 'min value': 0,
-    #                                               'drop min max value': True,
-    #                                               'label normalization': 'Z',
-    #                                               'label transform': 'boxcox'},
-#     'time to get to water source (refurbished) + penalty0': {'max value': 41, 'min value': 0,
-#                                                   'drop min max value': True,
-#                                                   'label normalization': 'Z'},
-#     'time to get to water source (refurbished) + penalty1': {'max value': 41, 'min value': 0,
-#                                                   'drop min max value': False,
-#                                                   'label normalization': 'Z'},
-#     'time to get to water source (refurbished) + penalty2': {'max value': 41, 'min value': 0,
-#                                                   'drop min max value': True},
-#     'time to get to water source (refurbished) + penalty5': {'max value': 41, 'min value': 0,
-#                                                   'drop min max value': False},
-#     'time to get to water source (refurbished) + penalty3': {'max value': 41, 'min value': 0,
-#                                                   'drop min max value': False,
-#                                                   'label normalization': 'Z',
-#                                                   'label transform': 'boxcox'},
-#     'time to get to water source (refurbished) + penalty4': {'max value': 41, 'min value': 0,
-#                                                   'drop min max value': True,
-#                                                   'label normalization': 'Z',
-#                                                   'label transform': 'boxcox'},
-}
-              # 'time to get to water source + penalty': {'max value': 41, 'drop max value': True},
-              # 'time to get to water source (refurbished) + penalty': {'max value': 41, 'drop max value': True}}
-# label_name = ['PCA urban', 'Std Deviation: PCA urban']
+# label_name = ["source of drinking water (categorized piped): max", "source of drinking water (categorized piped 2): max",
+#               "source of drinking water (categorized piped 3): max"]
+label_name = ['distance categories cluster', 'distance categories cluster 2']#asd
+# label_name = ['weighting (location)', 'time to get to water source + penalty',
+#               'time to get to water source (refurbished) + penalty', 'time to get to water source + penalty (capped)']
 # label_name = ['source of drinking water (weights)']
 # [Minimum, maximum values] for clipping above and below those pixel values
 clipping_values = [0, 3000]
@@ -135,15 +74,15 @@ model_name = 'vgg19'
 # loss function
 #keras losses and metrics imports - do not initialize!!! Need to be called in strategy scope
 #CategoricalCrossentropy or MeanSquaredError
-loss = losses.MeanSquaredError
+loss = losses.CategoricalCrossentropy
 #CategoricalAccuracy or RootMeanSquaredError
-metrics_l = [metrics.RootMeanSquaredError]
+metrics_l = [metrics.CategoricalAccuracy]
 #categoricall or regression
-type_m = 'regression'
+type_m = 'categorical'
 test_mode = False
-#Z, 0,1 #gets overwritten if passed to label_name dict
+#Z-normalization
 label_normalization = False
-#boxcox #gets overwritten if passed to label_name dict
+#boxcox
 label_transform = False
 split = 'random split'
 # chose your optimizer
@@ -262,50 +201,50 @@ IDG_augmentation_settings_d = {'subset1': {
         # 'width_shift_range': 0.2,
         # 'height_shift_range': 0.2
     },
-# 'subset11': {
-#         #'brightness_range': [0.9, 1.1], #Tuple or list of two floats. Range for picking a brightness shift value from.
-#         #'shear_range': 0.2, #Float. Shear Intensity (Shear angle in counter-clockwise direction in degrees)
-#         'zoom_range': 0.2,
-#         'channel_shift_range': 0.3,
-#         'horizontal_flip': True,
-#         #'vertical_flip': True,
-#         # 'rotation_range': 20, #Int. Degree range for random rotations.
-#         # 'width_shift_range': 0.2,
-#         # 'height_shift_range': 0.2
-#     },
-# 'subset12': {
-#         #'brightness_range': [0.9, 1.1], #Tuple or list of two floats. Range for picking a brightness shift value from.
-#         'shear_range': 0.2, #Float. Shear Intensity (Shear angle in counter-clockwise direction in degrees)
-#         #'zoom_range': 0.2,
-#         'channel_shift_range': 0.3,
-#         'horizontal_flip': True,
-#         #'vertical_flip': True,
-#         # 'rotation_range': 20, #Int. Degree range for random rotations.
-#         # 'width_shift_range': 0.2,
-#         # 'height_shift_range': 0.2
-#     },
-# 'subset14': {
-#         #'brightness_range': [0.9, 1.1], #Tuple or list of two floats. Range for picking a brightness shift value from.
-#         #'shear_range': 0.2, #Float. Shear Intensity (Shear angle in counter-clockwise direction in degrees)
-#         'zoom_range': 0.2,
-#         #'channel_shift_range': 0.3,
-#         'horizontal_flip': True,
-#         #'vertical_flip': True,
-#         # 'rotation_range': 20, #Int. Degree range for random rotations.
-#         # 'width_shift_range': 0.2,
-#         # 'height_shift_range': 0.2
-#     },
-# 'subset15': {
-#         #'brightness_range': [0.9, 1.1], #Tuple or list of two floats. Range for picking a brightness shift value from.
-#         #'shear_range': 0.2, #Float. Shear Intensity (Shear angle in counter-clockwise direction in degrees)
-#         #'zoom_range': 0.2,
-#         'channel_shift_range': 0.3,
-#         'horizontal_flip': True,
-#         #'vertical_flip': True,
-#         # 'rotation_range': 20, #Int. Degree range for random rotations.
-#         # 'width_shift_range': 0.2,
-#         # 'height_shift_range': 0.2
-#     },
+'subset11': {
+        #'brightness_range': [0.9, 1.1], #Tuple or list of two floats. Range for picking a brightness shift value from.
+        #'shear_range': 0.2, #Float. Shear Intensity (Shear angle in counter-clockwise direction in degrees)
+        'zoom_range': 0.2,
+        'channel_shift_range': 0.3,
+        'horizontal_flip': True,
+        #'vertical_flip': True,
+        # 'rotation_range': 20, #Int. Degree range for random rotations.
+        # 'width_shift_range': 0.2,
+        # 'height_shift_range': 0.2
+    },
+'subset12': {
+        #'brightness_range': [0.9, 1.1], #Tuple or list of two floats. Range for picking a brightness shift value from.
+        'shear_range': 0.2, #Float. Shear Intensity (Shear angle in counter-clockwise direction in degrees)
+        #'zoom_range': 0.2,
+        'channel_shift_range': 0.3,
+        'horizontal_flip': True,
+        #'vertical_flip': True,
+        # 'rotation_range': 20, #Int. Degree range for random rotations.
+        # 'width_shift_range': 0.2,
+        # 'height_shift_range': 0.2
+    },
+'subset14': {
+        #'brightness_range': [0.9, 1.1], #Tuple or list of two floats. Range for picking a brightness shift value from.
+        #'shear_range': 0.2, #Float. Shear Intensity (Shear angle in counter-clockwise direction in degrees)
+        'zoom_range': 0.2,
+        #'channel_shift_range': 0.3,
+        'horizontal_flip': True,
+        #'vertical_flip': True,
+        # 'rotation_range': 20, #Int. Degree range for random rotations.
+        # 'width_shift_range': 0.2,
+        # 'height_shift_range': 0.2
+    },
+'subset15': {
+        #'brightness_range': [0.9, 1.1], #Tuple or list of two floats. Range for picking a brightness shift value from.
+        #'shear_range': 0.2, #Float. Shear Intensity (Shear angle in counter-clockwise direction in degrees)
+        #'zoom_range': 0.2,
+        'channel_shift_range': 0.3,
+        'horizontal_flip': True,
+        #'vertical_flip': True,
+        # 'rotation_range': 20, #Int. Degree range for random rotations.
+        # 'width_shift_range': 0.2,
+        # 'height_shift_range': 0.2
+    },
 }
 # #
 # IDG_augmentation_settings_d = {'subset1': {

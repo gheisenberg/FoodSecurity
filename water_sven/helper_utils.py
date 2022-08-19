@@ -6,7 +6,7 @@ import pickle
 import nn_utils as nnu
 
 
-def paths_from_base_path(base_path, folders_d, verbose=1):
+def paths_from_base_path(base_path, folders_d, add_d=False, verbose=1):
     """Returns subfolders from a base folder (creates them if necessary)
 
     Args:
@@ -27,14 +27,23 @@ def paths_from_base_path(base_path, folders_d, verbose=1):
         if type(path_b) != str:
             raise TypeError("path is", path_b, "Should be a path though")
         path = os.path.join(path_b, rel_path)
+
         if indicator:
             #add stuff to path so it wont exist
             nr = 1
             while os.path.exists(path + '_' + str(nr)):
                 nr += 1
             path += '_' + str(nr) + '/'
+
         if not os.path.exists(path):
             os.mkdir(path)
+        #add subfolders
+        if add_d:
+            for k, v in add_d.items():
+                if name == k:
+                    path += '/' + v
+                    if not os.path.exists(path):
+                        os.mkdir(path)
         paths_l.append(path)
         #append the result to dict to reload it when necessary
         folders_d[name].append(path)

@@ -1,0 +1,15 @@
+Tube well or borehole,2, elementary
+public tap/standpipe,3, basic
+unprotected well,2, elementary
+protected well,3, basic
+piped to yard/plot,4, improved
+unprotected spring,2, elementary
+protected spring,3, basic
+piped into dwelling,5, improved
+piped to neighbor,3, improved
+sachet,5, improved
+street vendor,2, basic
+rainwater,1, elementary
+bottled,5, improved
+other,1, elementary
+surface water,1, elementary

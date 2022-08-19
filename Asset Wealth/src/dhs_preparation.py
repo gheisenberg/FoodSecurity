@@ -63,7 +63,9 @@ class DHS_preparation():
 
     def recode_and_format_dhs(self, filename: str):
         '''Recode DHS survey data and calculate Asset Wealth.
-
+        Remark Sven: Obviously the index is calculated for each country. This means that there is no comparability
+        between different indexes!
+        Also: not working at all like this!
         Args:
             filename: Filename of DHS survey csv
         '''

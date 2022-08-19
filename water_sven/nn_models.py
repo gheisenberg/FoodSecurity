@@ -3,10 +3,11 @@ from keras.layers import GlobalMaxPooling2D,GlobalAveragePooling2D
 import inspect
 import tensorflow as tf
 from keras.applications.vgg16 import VGG16
+import numpy as np
 
 
 
-def add_classification_top_layer(model, out_classes, neurons_l, dropout=0.5, unfreeze_layers=0):
+def add_classification_top_layer(model, out_classes, neurons_l, type_m='categorical', dropout=0.5, unfreeze_layers=0):
     """Adds custom top layers
 
     Args:
@@ -33,11 +34,16 @@ def add_classification_top_layer(model, out_classes, neurons_l, dropout=0.5, unf
     x = GlobalAveragePooling2D()(x)
     #add multiple layers defined in neurons_l
     for neurons in neurons_l:
+        #named randomly to prevent reloading of weights with model.load_weights(by_name=True)
         x = Dense(neurons, activation='relu')(x)
         if dropout:
             x = Dropout(dropout)(x)
     #add softmax for
-    out = Dense(out_classes, activation='softmax')(x)
+    if type_m == 'categorical':
+        out = Dense(out_classes, activation='softmax')(x)
+    elif type_m == 'regression':
+        out = Dense(1, kernel_initializer='normal')(x)
+
     model = tf.keras.models.Model(inputs=model.input, outputs=out)
     return model
 
