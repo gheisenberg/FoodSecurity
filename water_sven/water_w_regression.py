@@ -9,7 +9,6 @@ import shutil
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import tensorflow
 from sklearn.metrics import classification_report, f1_score
 import keras
 import keras.backend as K
@@ -46,7 +45,7 @@ import helper_utils as hu
 ###Some general information and settings
 # print some general information
 print('keras v', keras.__version__)
-print('tf keras v', tensorflow.keras.__version__)
+print('tf keras v', tf.keras.__version__)
 print('tf v', tf.__version__)
 # to do: try non eager execution graph?
 print('tf eager execution', tf.executing_eagerly())
