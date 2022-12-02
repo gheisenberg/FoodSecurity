@@ -382,8 +382,35 @@ def special_replace(row, replace_d, col, labels_df, drop):
 
 
 def load_labels(file, col, base_path=False, mode='categorical', drop=0.05, normalization=False,
-                split='random split', map_drop_to_other=False, special_rep=True,
+                split='random split', map_drop_to_other=False, special_rep=False,
                 transform=False, break_v=4000, **kwargs):
+    """
+    Loads, manipulates and one-hots labels
+
+    Args:
+        file: csv file with labels (min information: path to .tif OR DHSID AND GEID, label, train, validation test split
+            in one column)
+        col: column to use as label
+        base_path: if there is no path in the label file, matches .tif names with DHSID and GEID to files in this folder
+        mode: 'categorical' or 'regression' defines type of model and prepares labels accordingly
+        drop: drops labels below a certain share of the dataset (e.g. 0.5)
+        normalization: 'Z' or '0,1' label normalization
+        split: defines the column name of the label file where the split is defined
+        map_drop_to_other: maps labels which would get dropped to 'other' category instead of dropping them
+        special_rep: depreceated?!? needs to be checked!!!
+        transform: 'boxcox' transforms the label by boxcox transformation (note 0 is shifted to 0.1)
+        break_v: throws a warning if the amount of label data falls below a threshold (default=4000)
+        **kwargs: (can be specified in the config and passed here)
+        'min value': Float: maps (or drops) labels below the value to min value
+        'max value': Float: maps (or drops) labels above the value to max value
+        'drop min max value': use 'True' to drop the values below/above the 'min value' and 'max value'
+        'reverse label': use 'True' to multiply label by -1
+        'label normalization': see normalization above (overwrites)
+        'label transform': see transform above (overwrites)
+
+    Returns:
+        datagen_train, datagen_val, datagen_test (Keras ImageDataGenerator): ...
+    """
     reverse_label, min_value, max_value, drop_min_max_value, normalization, transform, match_files = False, False, \
                                                                                                      False, False, \
                                                                                                      False, False, False
@@ -415,7 +442,7 @@ def load_labels(file, col, base_path=False, mode='categorical', drop=0.05, norma
         labels_df["path"] = labels_df['path'].apply(lambda x: x if x in available_files else np.NaN)
         print('    !!!Caution Missing files', len(labels_df['path'][labels_df['path'].isna()]))
     else:
-        labels_df = labels_df[['DHSID', 'path', split, col]]
+        labels_df = labels_df[['path', split, col]]
     labels_df['label'] = labels_df[col]
     print(labels_df)
     # print(labels_df[labels_df.isna()])
