@@ -1,6 +1,7 @@
 import os
 from itertools import chain, combinations
 import pickle
+from os import walk
 
 #own imports
 import nn_utils as nnu
@@ -92,3 +93,14 @@ def powerset(iterable):
     """
     s = list(iterable)
     return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
+
+def files_in_folder(path, return_pathes=True):
+    pathes = []
+    for (dirpath, dirnames, filenames) in walk(path):
+        if not return_pathes:
+            return filenames
+        else:
+            for f in filenames:
+                pathes.append(dirpath + f)
+        break
+    return pathes

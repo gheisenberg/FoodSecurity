@@ -54,7 +54,7 @@ print('tf eager execution', tf.executing_eagerly())
 #https://github.com/tensorflow/tensorflow/issues/27023
 #Thanks @Mrs Przibylla
 #'1' = Infos, '2' = warnings, '3' = Errors
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 # do not assign complete gpu-memory but grow it as needed
 # allows to run multiple models at once (otherwise whole gpu memory gets allocated/gpu gets blocked)
@@ -381,10 +381,12 @@ def special_replace(row, replace_d, col, labels_df, drop):
     return replace_d, replaced
 
 
-def load_labels(file, col, mode='categorical', drop=0.05, normalization=False,
+def load_labels(file, col, base_path=False, mode='categorical', drop=0.05, normalization=False,
                 split='random split', map_drop_to_other=False, special_rep=True,
                 transform=False, break_v=4000, **kwargs):
-    reverse_label, min_value, max_value, drop_min_max_value = False, False, False, False
+    reverse_label, min_value, max_value, drop_min_max_value, normalization, transform, match_files = False, False, \
+                                                                                                     False, False, \
+                                                                                                     False, False, False
     for k, v in kwargs.items():
         if k == 'reverse label':
             reverse_label = v
@@ -401,9 +403,26 @@ def load_labels(file, col, mode='categorical', drop=0.05, normalization=False,
     print('drop', drop_min_max_value)
     print('minmax value', min_value, max_value)
     labels_df = pd.read_csv(file)
-    labels_df = labels_df[['DHSID', 'path', split, col]]
+    # for c in labels_df.columns:
+    #     print(labels_df[c].value_counts(dropna=False))
+    # sys.exit()
+    if base_path:
+        labels_df = labels_df[['GEID', 'DHSID', 'path', split, col]]
+        #create pathes
+        labels_df['path'] = base_path + labels_df['GEID'] + labels_df['DHSID'].str[-8:] + '.tif'
+        available_files = hu.files_in_folder(base_path)
+        #check if actually available
+        labels_df["path"] = labels_df['path'].apply(lambda x: x if x in available_files else np.NaN)
+        print('    !!!Caution Missing files', len(labels_df['path'][labels_df['path'].isna()]))
+    else:
+        labels_df = labels_df[['DHSID', 'path', split, col]]
     labels_df['label'] = labels_df[col]
+    print(labels_df)
+    # print(labels_df[labels_df.isna()])
+    print('    !!!Caution Missing values getting dropped', len(labels_df[labels_df.isnull().any(axis=1)]))
     labels_df = labels_df.dropna()
+    labels_df['label'] = labels_df[col]
+    print(labels_df)
     label_mapping = {}
     add_params = {}
     scaler = False
@@ -450,7 +469,8 @@ def load_labels(file, col, mode='categorical', drop=0.05, normalization=False,
         for val in [min_value, max_value]:
             if val is not False:
                 # get rid of outlier
-                print('val', val)
+                print('min/max val', val)
+                #setting to min/max value
                 if val > 0:
                     print(labels_df[labels_df['label'] >= val]['label'])
                     labels_df['label'] = np.where(labels_df['label'].between(val, 99999999999), val,
@@ -460,15 +480,15 @@ def load_labels(file, col, mode='categorical', drop=0.05, normalization=False,
                     labels_df['label'] = np.where(labels_df['label'].between(-99999999999, val), val,
                                               labels_df['label'])
                 print(labels_df[labels_df['label'] == val]['label'])
+                #dropping
                 if drop_min_max_value:
                     labels_df['label'] = labels_df['label'].replace({val: np.NaN})
-                    print('isna', labels_df[labels_df['label'].isna()]['label'])
+                    print('dropping due to min/max value', val, len(labels_df[labels_df['label'].isna()]['label']))
                     labels_df = labels_df.dropna()
-                    print(labels_df)
-                    if val > 0:
-                        print('dropped', labels_df[labels_df['label'] >= val]['label'])
-                    else:
-                        print('dropped', labels_df[labels_df['label'] <= val]['label'])
+                    # if val > 0:
+                    #     print('dropped', labels_df[labels_df['label'] >= val]['label'])
+                    # else:
+                    #     print('dropped', labels_df[labels_df['label'] <= val]['label'])
         if transform == 'boxcox':
             #boxcox doesnt work with 0
             # replace_d = {'label': {0: 0.1}}
@@ -598,7 +618,8 @@ def main():
         # load labels and class_weights from file (or calculate later one)
 
         train_df, validation_df, test_df, labels_df, label_mapping, labels_amount, add_params, scaler = \
-            load_labels(os.path.join(cfg.labels_f), label_name, mode=cfg.type_m, normalization=cfg.label_normalization,
+            load_labels(os.path.join(cfg.labels_f), label_name, base_path='/mnt/datadisk/data/Sentinel2/raw/',
+                        mode=cfg.type_m, normalization=cfg.label_normalization,
                         transform=cfg.label_transform, split=cfg.split, **dic)
         if cfg.type_m == 'categorical':
             num_labels = len(label_mapping)
