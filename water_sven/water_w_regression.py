@@ -945,7 +945,9 @@ def visualize_augmented_images(augmentation_d, train_ds, augmented_images_path):
 
 
 def main():
-    for [split_col, [label_name_in, label_d], img_path, augmentation_d, dim] in cfg.splitn_labeld_imgp_augmentation_dimension_l:
+    logger.info('%s', cfg.splitn_labeld_imgp_augmentation_dimension_l)
+    # print('%s', list(cfg.splitn_labeld_imgp_augmentation_dimension_l))
+    for (split_col, [label_name_in, label_d], img_path, augmentation_d, dim) in cfg.splitn_labeld_imgp_augmentation_dimension_l:
         label_name = label_name_in[:-1]
         logger.info('modelling water supply %s %s %s', label_name, 'type', cfg.type_m)
         # Import paths I

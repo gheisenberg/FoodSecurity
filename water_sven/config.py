@@ -71,13 +71,13 @@ splits_l = [
 
 # define the label column names and specify a normalization, upper and lower std multiples to drop outliers
 # (refer to load_labels() in water_w_regression.py for more information)
-label_d = {
-    'PCA w_location_weighting all2': {'label normalization': 'Z',}
+label_d = [
+    'PCA w_location_weighting all2', {'label normalization': 'Z',}
     # 'PCA w_weighting urban3': {'label normalization': 'Z',
     # 'max std': 2.5, 'drop min max value': False,
     # 'min std': -2.5},
     # 'label transform': 'boxcox',
-                            }
+                            ]
 
 ### Image Augmentation settings
 # (IDG is slowing down like crazy and multiple augmentations for the same image create
@@ -95,12 +95,13 @@ dim_l = False #[50, 100, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 
 
 ###Combine all these testing routines in a list of lists (see above for detailed description)
 #[[split_col, label_d, img_path, IDG_augmentation_settings_d, dim_l],]
-splitn_labeld_imgp_augmentation_dimension_l = [
-    ['split: out of country all (w TIF)', ['PCA w_location_weighting all2', {'label normalization': 'Z',}], img_path, IDG_augmentation_settings_d, dim_l],
-]
+# splitn_labeld_imgp_augmentation_dimension_l = [
+#     ['split: out of country all (w TIF)', ['PCA w_location_weighting all2', {'label normalization': 'Z',}], img_path, IDG_augmentation_settings_d, dim_l],
+# ]
 # can also be created like this (e.g.; be careful though!):
-# splitn_labeld_imgp_augmentation_dimension_l =
-# [zip(splits_l, [label_d]*len(splits_l), [img_path]*len(splits_l), [IDG_augmentation_settings_d]*len(splits_l), [dim_l]*len(splits_l))]
+splitn_labeld_imgp_augmentation_dimension_l = \
+    list(zip(splits_l, [label_d for i in splits_l], [img_path for i in splits_l],
+         [IDG_augmentation_settings_d for i in splits_l], [dim_l for i in splits_l]))
 
 
 ########################################################################################################################
