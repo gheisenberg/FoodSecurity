@@ -4,7 +4,7 @@ import fnmatch
 import numpy as np
 
 
-def load_dhs_data(dhs_path, return_paths=False):
+def load_dhs_data(dhs_path, dhs_extras_p, return_paths=False):
     for (dirrpath, dirrnames, filenames) in os.walk(dhs_path):
         print(dirrpath, dirrnames, filenames)
         #only these folder are needed
@@ -71,12 +71,12 @@ def load_dhs_data(dhs_path, return_paths=False):
 
 
     country_d = {}
-    input_file = csv.reader(open(r"/mnt/datadisk/data/surveys/DHS_raw_data/country_codes.csv"), delimiter='\t')
+    input_file = csv.reader(open(f"{dhs_extras_p}/country_codes.csv"), delimiter='\t')
     for row in input_file:
         country_d[row[0]] = row[1]
 
     data_file_types_d = {}
-    input_file = csv.reader(open(r"/mnt/datadisk/data/surveys/DHS_raw_data/data_file_types.csv"), delimiter='\t')
+    input_file = csv.reader(open(f"{dhs_extras_p}/data_file_types.csv"), delimiter='\t')
     for row in input_file:
         data_file_types_d[row[0]] = row[1]
 

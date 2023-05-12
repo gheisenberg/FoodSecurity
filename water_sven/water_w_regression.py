@@ -2,59 +2,61 @@
 # coding: utf-8
 
 ###general imports
-import copy
 import os
 import shutil
+import sys
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from sklearn.metrics import classification_report, f1_score
-import keras
-import keras.backend as K
 import tensorflow as tf
-from tensorflow.keras import optimizers
-from tensorflow.keras import losses
+import tensorflow.keras.backend as K
+from tensorflow.keras import optimizers, layers
 from tensorflow.keras import callbacks
+from tensorflow.keras.layers.experimental import preprocessing
 import pickle
 import time
-import csv
 from functools import partial
 from sklearn.utils import class_weight
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import scipy.stats as stats
 import tensorflow_addons as tfa
-import seaborn as sns
 import scipy
+import warnings
+import math
+
 # from tensorflow.python.framework.ops import disable_eager_execution
 # disable_eager_execution()
 # warnings.filterwarnings("ignore")
 # tf.autograph.set_verbosity(1)
-import sys
-
 
 ###priv imports
 import config as cfg
 import visualizations
-import nn_utils as nnu
 import nn_models as nnm
 import helper_utils as hu
-
-
-#####This needs to be done before using tensorflow or keras (e.g. importing losses in config)
-###Some general information and settings
-# print some general information
-print('keras v', keras.__version__)
-print('tf keras v', tf.keras.__version__)
-print('tf v', tf.__version__)
-# to do: try non eager execution graph?
-print('tf eager execution', tf.executing_eagerly())
+import geo_utils as gu
 
 #turn off cryptic warnings, Note that you might miss important warnings! If unexpected stuff is happening turn it on!
 #https://github.com/tensorflow/tensorflow/issues/27023
 #Thanks @Mrs Przibylla
 #'1' = Infos, '2' = warnings, '3' = Errors
-#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+logger = hu.setup_logger(cfg.logging)
+logger.warning('Logging level: ' + cfg.logging)
+
+#####This needs to be done before using tensorflow or keras (e.g. importing losses in config)
+###Some general information and settings
+# print some general information
+logger.info('tf keras v %s', tf.keras.__version__)
+logger.info('tf v %s', tf.__version__)
+# to do: try non eager execution graph?
+logger.info('tf eager execution %s', tf.executing_eagerly())
+# force channels-first ordering
+K.set_image_data_format('channels_first')
+logger.info('Image data format %s', K.image_data_format())
 
 # do not assign complete gpu-memory but grow it as needed
 # allows to run multiple models at once (otherwise whole gpu memory gets allocated/gpu gets blocked)
@@ -66,42 +68,18 @@ if gpus:
     except RuntimeError as e:
         raise e
 
-from config import gpus
+
 ###Define Model and MirroredStrategy (for mulit-gpu usage) - shall be initiated at the beginning of the program
 # Create a MirroredStrategy and pass the GPUs
-gpus = ["GPU:" + str(i) for i in gpus]
+gpus = ["GPU:" + str(i) for i in cfg.gpus]
 # https://keras.io/guides/distributed_training/
-print('gpus', gpus)
+logger.debug('gpus %s', gpus)
 strategy = tf.distribute.MirroredStrategy(gpus)
-print('Number of GPUs MirroredStrategy: {}'.format(strategy.num_replicas_in_sync))
+logger.info('Number of GPUs MirroredStrategy: {}'.format(strategy.num_replicas_in_sync))
 
 
-def get_f1(y_true, y_pred): #taken from old keras source code
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-    precision = true_positives / (predicted_positives + K.epsilon())
-    recall = true_positives / (possible_positives + K.epsilon())
-    f1_val = 2*(precision*recall)/(precision+recall+K.epsilon())
-    return f1_val
-
-
-def f1(y_true, y_pred):
-    y_pred = K.round(y_pred)
-    tp = K.sum(K.cast(y_true*y_pred, 'float'), axis=0)
-    # tn = K.sum(K.cast((1-y_true)*(1-y_pred), 'float'), axis=0)
-    fp = K.sum(K.cast((1-y_true)*y_pred, 'float'), axis=0)
-    fn = K.sum(K.cast(y_true*(1-y_pred), 'float'), axis=0)
-
-    p = tp / (tp + fp + K.epsilon())
-    r = tp / (tp + fn + K.epsilon())
-
-    f1 = 2*p*r / (p+r+K.epsilon())
-    f1 = tf.where(tf.math.is_nan(f1), tf.zeros_like(f1), f1)
-    return K.mean(f1)
-
-
-def create_run_folders(augmentation_d, normalization_d, prj_path, trainHistory_subname, label_name=False):
+def create_run_folders(augmentation_d, img_path, prj_path, trainHistory_subname, label_name=False, split=False, height=False,
+                       width=False):
     """Creates a name for the model run by importing settings from config.py.
     This will also be used as the folder name where all files of this run are saved.
     Creates this folder and further subfolders.
@@ -125,8 +103,11 @@ def create_run_folders(augmentation_d, normalization_d, prj_path, trainHistory_s
 
     ###Create global paths
     # Create train history path name //Run name
+    img_p = os.path.basename(img_path[:-1])
+    img_p = img_p.replace(',', '_')
+    img_p = img_p.replace(' ', '_')
     aug_name = '_'
-    for k, v in {**augmentation_d, **normalization_d}.items():
+    for k, v in augmentation_d.items():
         if v is False or v == 0 or v == {}:
             pass
         elif v is True:
@@ -139,10 +120,10 @@ def create_run_folders(augmentation_d, normalization_d, prj_path, trainHistory_s
     aug_name = aug_name.replace('_center_featurewise_std_normalization_', '')
     aug_name = aug_name.replace('_center_samplewise_std_normalization_', '')
     # strip every char containing harmful chars for paths
-    aug_name = aug_name.translate({ord(c): None for c in '[],;!@#$ '})
+    aug_name = aug_name.translate({ord(c): None for c in '[],;!@#$() '})
 
     # create base name
-    run_name = cfg.model_name + cfg.run_name_custom_string + '_w' + \
+    run_name = img_p + cfg.model_name + '_w' + \
                str(cfg.cnn_settings_d['weights']) + '_unfl' + str(cfg.unfreeze_layers_perc) + \
                '_d' + str(cfg.dropout_top_layers) + '_lr' + str(cfg.lr)
     if cfg.auto_adjust_lr[0]:
@@ -151,12 +132,8 @@ def create_run_folders(augmentation_d, normalization_d, prj_path, trainHistory_s
         run_name += '_momentum' + str(cfg.momentum)
     run_name += '_optimizer' + cfg.optimizer + aug_name
     run_name += '_m_' + cfg.model_name
+    run_name += '_h' + str(height) + '_w' + str(width)
 
-    # Create paths II
-    paths_dict = {'train_history_path': ['base_path', trainHistory_subname, False],
-                  'run_path': ['train_history_path', run_name, True],
-                  'modelcheckpoint_path': ['run_path', 'modelcheckp/', False],
-                  'augmented_imgs_path': ['run_path', 'augmented_imgs/', False]}
     sample_string = label_name
     char_to_replace = {' ': '_',
                        '<': '_',
@@ -168,7 +145,17 @@ def create_run_folders(augmentation_d, normalization_d, prj_path, trainHistory_s
     for key, value in char_to_replace.items():
         # Replace key character with value character in string
         sample_string = sample_string.replace(key, value)
-    [train_history_path, run_path, modelcheckpoint_path, augmented_images_path] = \
+        run_name = run_name.replace(key, value)
+        split = split.replace(key, value)
+
+    # Create paths II
+    paths_dict = {'trainH_path': ['base_path', trainHistory_subname, False],
+                  'train_history_path': ['trainH_path', split, False],
+                  'run_path': ['train_history_path', run_name, True],
+                  'modelcheckpoint_path': ['run_path', 'modelcheckp/', False],
+                  'augmented_imgs_path': ['run_path', 'augmented_imgs/', False]}
+
+    [trainH_base_p, train_history_path, run_path, modelcheckpoint_path, augmented_images_path] = \
         hu.paths_from_base_path(prj_path, paths_dict, add_d={'train_history_path': sample_string + '/'})
     run_name += run_path[-2:]
     return train_history_path, run_path, modelcheckpoint_path, augmented_images_path, run_name
@@ -241,7 +228,7 @@ def callback_loader(run_path, modelcheckpoint_path, metric):
     return callbacks_l
 
 
-def model_loader(num_labels, type_m):
+def model_loader(num_labels, type_m, shape, **aug_d):
     """Summarizing model loading from string defined in config.py to simplify code in main
     Also loads lots of variables from config.py, especially: cnn_settings_d (and many more)
     If defined in config.py add_custom_top_layers it will also add custom top layers by calling add_top_layer from
@@ -250,211 +237,213 @@ def model_loader(num_labels, type_m):
     Returns:
         model (Keras model): e.g. VGG19 or resnet50 if defined with custom top layers
     """
+    cnn_settings_d = cfg.cnn_settings_d
+    cnn_settings_d['input_shape'] = shape
+    logger.debug('cnn settings d', cnn_settings_d)
     if cfg.model_name == 'resnet152':
-        base_model = tf.keras.applications.ResNet152V2(**cfg.cnn_settings_d)
+        base_model = tf.keras.applications.ResNet152V2(**cnn_settings_d)
     elif cfg.model_name == 'resnet50':
-        base_model = tf.keras.applications.ResNet50V2(**cfg.cnn_settings_d)
+        base_model = tf.keras.applications.ResNet50V2(**cnn_settings_d)
     elif cfg.model_name == 'vgg16':
-        base_model = tf.keras.applications.VGG16(**cfg.cnn_settings_d)
+        base_model = tf.keras.applications.VGG16(**cnn_settings_d)
     elif cfg.model_name == 'vgg19':
-        base_model = tf.keras.applications.VGG19(**cfg.cnn_settings_d)
+        base_model = tf.keras.applications.VGG19(**cnn_settings_d)
     elif cfg.model_name == 'inceptionv3':
-        base_model = tf.keras.applications.InceptionV3(**cfg.cnn_settings_d)
+        base_model = tf.keras.applications.InceptionV3(**cnn_settings_d)
     elif cfg.model_name == 'densenet121':
-        base_model = tf.keras.applications.DenseNet121(**cfg.cnn_settings_d)
+        base_model = tf.keras.applications.DenseNet121(**cnn_settings_d)
     elif cfg.model_name == 'densenet201':
-        base_model = tf.keras.applications.DenseNet201(**cfg.cnn_settings_d)
+        base_model = tf.keras.applications.DenseNet201(**cnn_settings_d)
     elif cfg.model_name == 'xception':
-        base_model = tf.keras.applications.Xception(**cfg.cnn_settings_d)
+        base_model = tf.keras.applications.Xception(**cnn_settings_d)
     else:
         raise NotImplementedError("The model you want is not implemented right now", cfg.model_name)
 
+
+        # base_model = Model(inputs, outputs)
     # Add custom Top Layers (Imagenet has 1000nds of classes - we need 3!)
-    if cfg.cnn_settings_d['include_top'] is False and cfg.add_custom_top_layers:
+    if cnn_settings_d['include_top'] is False and cfg.add_custom_top_layers:
         base_model = nnm.add_classification_top_layer(base_model, num_labels, cfg.neurons_l, type_m,
                                                       cfg.dropout_top_layers, cfg.unfreeze_layers_perc)
-        print('Final Model with added top layers', type(base_model), 'layers', len(base_model.layers),
-              'of which', round(len(base_model.layers) * cfg.unfreeze_layers_perc / 100), 'are unfroozen or ',
-              cfg.unfreeze_layers_perc, '%')
+        logger.info(f'Final Model with added top layers {type(base_model)} layers {len(base_model.layers)}'
+                    f'of which {round(len(base_model.layers) * cfg.unfreeze_layers_perc / 100)} are unfroozen or'
+                    f'{cfg.unfreeze_layers_perc} %')
+    #Add preprocessing layers
+    if aug_d:
+        input_layer = tf.keras.Input(shape=shape)
+        aug_layer = augmentation(**aug_d)
+        x = aug_layer(input_layer)
+        x = base_model(x)
+        base_model = tf.keras.Model(inputs=input_layer, outputs=x)
+        logger.debug('final model with aug', base_model)
     return base_model
 
 
-def generator_n_dataset_creator(train_df, validation_df, test_df, num_labels, type_m):
-    """Summarizing generator creation to simplify code in main
-    Also loads lots of variables from config.py
-
-    Args:
-        train_df, validation_df, test_df (str): Paths...
-        labels_df (Pandas DF): Labels
-
-    Returns:
-        train_ds, val_ds, test_ds (TF dataset): ...
-    """
-    # create generators and datasets (ds)
-    # test if possible before loops!
-    train_generator_func = partial(nnu.generator, train_df,
-                                   cfg.batch_size, cfg.input_shape[1],
-                                   cfg.input_shape[2], cfg.clipping_values, cfg.channels, cfg.channel_size,
-                                   num_labels)
-
-    train_ds = tf.data.Dataset.from_generator(train_generator_func,
-                                              output_types=(tf.float32, tf.float32),
-                                              output_shapes=(cfg.input_shape, (cfg.batch_size, num_labels)))
-
-    # This part generates the actual validation generator for the NN
-    val_generator_func = partial(nnu.generator, validation_df,
-                                 cfg.batch_size, cfg.input_shape[1],
-                                 cfg.input_shape[2], cfg.clipping_values, cfg.channels, cfg.channel_size,
-                                 num_labels)
-    val_ds = tf.data.Dataset.from_generator(val_generator_func,
-                                            output_types=(tf.float32, tf.float32),
-                                            output_shapes=(cfg.input_shape, (cfg.batch_size, num_labels)))
-    test_generator_func = partial(nnu.generator, test_df,
-                                  cfg.batch_size, cfg.input_shape[1],
-                                  cfg.input_shape[2], cfg.clipping_values, cfg.channels, cfg.channel_size,
-                                  num_labels)
-    test_ds = tf.data.Dataset.from_generator(test_generator_func,
-                                             output_types=(tf.float32, tf.float32),
-                                             output_shapes=(cfg.input_shape, (cfg.batch_size, num_labels)))
-    return train_ds, val_ds, test_ds
-
-
-def IDG_creator(train_x, train_y, val_x, val_y, test_x, test_y, augmentation_d, normalization_d):
-    """Summarizing ImageDataGenerator (IDG) creation to simplify code in main
-    Also loads lots of variables from config.py
-
-    Args:
-        train_x, train_y, val_x, val_y, test_x, test_y (np array): ...
-        normalization_d (dict): Settings for normalization
-        augmentation_d (dict): Settings for augmentation
-
-    Returns:
-        datagen_train, datagen_val, datagen_test (Keras ImageDataGenerator): ...
-    """
+def dataset_creator(train_df, validation_df, test_df, prediction_type, num_labels, cache_p, height, width, channel_l,
+                    **augargs):
+    ds_l = []
+    for typ, df in zip(['train', 'validation', 'test'], [train_df, validation_df, test_df]):
+        if typ == 'train':
+            steps_per_epoch_train = math.ceil(len(df)/cfg.batch_size)
+        elif typ == 'validation':
+            steps_per_epoch_val = math.ceil(len(df) / cfg.batch_size)
+        elif typ == 'test':
+            steps_per_epoch_test = math.ceil(len(df) / cfg.batch_size)
+        files = tf.data.Dataset.from_tensor_slices(tf.constant(df['path']))
+        labels = np.array(df['label'])
+        if prediction_type == 'regression':
+            labels = labels.reshape(-1, 1)
+        elif prediction_type == 'categorical':
+            labels = tf.constant(labels)
+            labels = tf.one_hot(labels, num_labels)
+        else:
+            raise ValueError(f"cfg.type_m or respectively prediction_type must be 'regression' or 'categorical' it is"
+                             f" {prediction_type} though")
+        labels = tf.data.Dataset.from_tensor_slices(labels)
+        assert len(files) == len(labels)
+        if cfg.verbose:
+            logger.debug('files ds %s', files)
+            logger.debug('labels ds %s', labels)
+        func = partial(gu.load_geotiff, height=height, width=width, channel_l=channel_l, only_return_array=True)
+        ds = files.map(lambda x: tf.py_function(func, [x], tf.float32),
+                    num_parallel_calls=tf.data.AUTOTUNE)
+        if cfg.verbose:
+            logger.debug('Read imgs ds %s', ds)
+        assert len(ds) == len(labels)
+        ds = tf.data.Dataset.zip((ds, labels))
+        if cfg.verbose:
+            logger.debug('Zipped ds %s %s', ds, len(ds))
+        #significantly improves speed! ~25%
+        if typ == 'train':
+            cache_f = cache_p + typ
+            ds = ds.cache(cache_f)
+            #buffer_size does not seem to influence the performance
+            #to do: set on True again?!
+            ds = ds.shuffle(cfg.batch_size, reshuffle_each_iteration=False)
+        ds = ds.batch(cfg.batch_size)
+        #does not seem to have an influence when used with cached datasets
+        ds = ds.prefetch(tf.data.AUTOTUNE)
+        ds_l.append(ds)
     if cfg.verbose:
-        print('Shapes trainX, trainY, valX, valY, testX, testY', train_x.shape, train_y.shape, val_x.shape, val_y.shape,
-              test_x.shape, test_y.shape)
-    # merge options and feed them to IDG
-    datagen_train = tf.keras.preprocessing.image.ImageDataGenerator(**{**augmentation_d, **normalization_d})
-    # create data gen for val data and dont augment, so real data is evaluated and loaded from memory
-    # only use augmentation for val data if it changes values - needs to be done for test data as
-    # well then...
-    # only use fitting of IDG when necessary
-    if 'featurewise_center' in normalization_d or \
-            'featurewise_std_normalization' in normalization_d or \
-            'zca_whitening' in normalization_d:
-        print("Fitting datagen")
-        # to do fit and then add further options
-        # to do zca on val
-        datagen2 = tf.keras.preprocessing.image.ImageDataGenerator(**normalization_d)
-        if 'zca_whitening' in normalization_d:
-            # possible to only fit on small subset (and val ds is practically a subset)
-            # to do: replace with subset of train
-            datagen_train.fit(train_x[:int(len(train_x) * cfg.zca_whitening_perc_fit / 100)])
-            datagen2.fit(train_x[:int(len(train_x) * cfg.zca_whitening_perc_fit / 100)])
-        elif 'featurewise_center' in normalization_d or \
-                'featurewise_std_normalization' in normalization_d:
-            datagen_train.fit(train_x)
-            datagen2.fit(train_x)
-        # use the same IDG for val and test if fitted
-        # to do: implement for test
-        datagen_test = datagen2
-        datagen_val = datagen2
-        print('Using normalized datagen for validation and testing')
-    else:
-        print('Using empty IDG/no augmentation for validation and testing')
-        datagen_test = tf.keras.preprocessing.image.ImageDataGenerator()
-        datagen_val = datagen_test
-        print(datagen_val)
-    return datagen_train, datagen_val, datagen_test
+        logger.debug('Final ds %s', ds)
+        logger.debug('steps p epoch train, val, test %s %s %s',
+                     steps_per_epoch_train, steps_per_epoch_val, steps_per_epoch_test)
+    return ds_l[0], ds_l[1], ds_l[2], steps_per_epoch_train, steps_per_epoch_val, steps_per_epoch_test
 
 
 def special_replace(row, replace_d, col, labels_df, drop):
+    """Experimental and seldom used: replacing labels by others in"""
     replaced = False
     if 'urban' in cfg.labels_f:
         if col == 'source of drinking water (weights): max':
             if row[0] == 1.0:
                 replace_d[row[0]] = 2.0
                 replaced = True
-                print('replaced label:', row[0], 'n:', row[1][col], '< threshold', len(labels_df) * drop,
+                logger.info('replaced label:', row[0], 'n:', row[1][col], '< threshold', len(labels_df) * drop,
                       'with 2')
     return replace_d, replaced
 
 
-def load_labels(file, col, base_path=False, mode='categorical', drop=0.05, normalization=False,
-                split='random split', map_drop_to_other=False, special_rep=False,
-                transform=False, break_v=4000, **kwargs):
-    """
-    Loads, manipulates and one-hots labels
+def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0.05, min_year=False,
+                split='split: random all', map_drop_to_other=False, special_rep=False, break_v=2000,
+                **kwargs):
+    """Loads and processes labels from a CSV file.
 
     Args:
-        file: csv file with labels (min information: path to .tif OR DHSID AND GEID, label, train, validation test split
-            in one column)
-        col: column to use as label
-        base_path: if there is no path in the label file, matches .tif names with DHSID and GEID to files in this folder
-        mode: 'categorical' or 'regression' defines type of model and prepares labels accordingly
-        drop: drops labels below a certain share of the dataset (e.g. 0.5)
-        normalization: 'Z' or '0,1' label normalization
-        split: defines the column name of the label file where the split is defined
-        map_drop_to_other: maps labels which would get dropped to 'other' category instead of dropping them
-        special_rep: depreceated?!? needs to be checked!!!
-        transform: 'boxcox' transforms the label by boxcox transformation (note 0 is shifted to 0.1)
-        break_v: throws a warning if the amount of label data falls below a threshold (default=4000)
-        **kwargs: (can be specified in the config and passed here)
-        'min value': Float: maps (or drops) labels below the value to min value
-        'max value': Float: maps (or drops) labels above the value to max value
+        file (str): Path to the CSV file containing the labels: Following columns are required: ['GEID', 'DHSID',
+        'path', split, col, "households", "adm0_name", "adm1_name", "adm2_name", "LATNUM", "LONGNUM", "DHSYEAR"]
+        col (str): Name of the column containing the labels.
+        run_path (str): Path for saving visualizations.
+        base_path (str, optional): Base path for checking if there are images, if not provided defaults to False.
+        mode (str, optional): Mode of processing, can be 'categorical' or 'regression'. Defaults to 'categorical'.
+        drop (float, optional): Threshold for dropping labels in 'categorical' mode based on their frequency. Defaults to 0.05.
+        min_year (int, optional): Minimum year for data filtering, if not provided defaults to False.
+        split (str, optional): The column in the file defining data splits. Defaults to 'split: random all'.
+        map_drop_to_other (bool, optional): In 'categorical' mode: If True, maps the dropped labels to 'other'. Defaults to False.
+        special_rep (bool, optional): If True, applies a special replacement for dropped labels. Defaults to False.
+        break_v (int, optional): Threshold for warning about the number of labels. Defaults to 2000.
+        **kwargs: Additional keyword arguments:
+        'min std': Float: maps (or drops) labels below the value to min value
+        'max std': Float: maps (or drops) labels above the value to max value
         'drop min max value': use 'True' to drop the values below/above the 'min value' and 'max value'
         'reverse label': use 'True' to multiply label by -1
-        'label normalization': see normalization above (overwrites)
-        'label transform': see transform above (overwrites)
+        'label normalization': 'Z' or '0,1' label normalization
+        'label transform': 'boxcox' transforms the label by boxcox transformation (note 0 is shifted to 0.1)
 
     Returns:
-        datagen_train, datagen_val, datagen_test (Keras ImageDataGenerator): ...
+        list: DataFrame objects for each split in the data (train/validation or splits).
+        DataFrame: DataFrame containing the test split
+        DataFrame: DataFrame containing the full data
+        dict: Mapping of original to new labels if mode is 'categorical'.
+        dict: Dictionary of additional parameters computed during processing.
+        object: Scaler object used for label normalization in 'regression' mode, False otherwise.
     """
-    reverse_label, min_value, max_value, drop_min_max_value, normalization, transform, match_files = False, False, \
-                                                                                                     False, False, \
-                                                                                                     False, False, False
+
+    reverse_label, min_std, max_std, drop_min_max_value, normalization, transform = False, False, False, False, \
+                                                                                                     False, False
     for k, v in kwargs.items():
         if k == 'reverse label':
             reverse_label = v
-        elif k == 'min value':
-            min_value = v
-        elif k == 'max value':
-            max_value = v
+        elif k == 'min std':
+            min_std = v
+        elif k == 'max std':
+            max_std = v
         elif k == 'drop min max value':
             drop_min_max_value = v
         elif k == 'label normalization':
             normalization = v
         elif k == 'label transform':
             transform = v
-    print('drop', drop_min_max_value)
-    print('minmax value', min_value, max_value)
+    if drop_min_max_value:
+        logger.info('dropping labels %s', drop_min_max_value)
+    if min_std or max_std:
+        logger.info('min/max value %s %s', min_std, max_std)
     labels_df = pd.read_csv(file)
-    # for c in labels_df.columns:
-    #     print(labels_df[c].value_counts(dropna=False))
-    # sys.exit()
+    # shuffle in pandas ##doesnt effect splits
+    labels_df = labels_df.sample(frac=1)
+
+    #delete everything where no split is defined
+    #note: in many implementations, the split will make a check for urban/rural, GTIF images and a min_year obsolete
+    #to be sure it is still implemented here, though
+    if split:
+        labels_df = labels_df.dropna(subset=[split])
     if base_path:
-        labels_df = labels_df[['GEID', 'DHSID', 'path', split, col]]
         #create pathes
         labels_df['path'] = base_path + labels_df['GEID'] + labels_df['DHSID'].str[-8:] + '.tif'
         available_files = hu.files_in_folder(base_path)
         #check if actually available
         labels_df["path"] = labels_df['path'].apply(lambda x: x if x in available_files else np.NaN)
-        print('    !!!Caution Missing files', len(labels_df['path'][labels_df['path'].isna()]))
-    else:
-        labels_df = labels_df[['path', split, col]]
+    if min_year:
+        logger.info(f"If not using min year {min_year} {len(labels_df[labels_df['DHSYEAR'] < min_year])} more data could be "
+              f"used")
+        labels_df = labels_df[labels_df['DHSYEAR'] >= min_year]
+    #create visualization for incoming labels before dropping values
+    visualizations.standard_hist_from_df(labels_df[col], run_path, '', title_in=col)
+    visualizations.standard_hist_from_df(labels_df[col], run_path, '', title_in=col + ' wo xlim', xlim=False)
+
+    labels_df = labels_df[['GEID', 'DHSID', 'path', split, col, "households", "adm0_name", "adm1_name", "adm2_name",
+                           "LATNUM", "LONGNUM", "DHSYEAR"]]
     labels_df['label'] = labels_df[col]
-    print(labels_df)
-    # print(labels_df[labels_df.isna()])
-    print('    !!!Caution Missing values getting dropped', len(labels_df[labels_df.isnull().any(axis=1)]))
-    labels_df = labels_df.dropna()
-    labels_df['label'] = labels_df[col]
-    print(labels_df)
+    #drop all which have no label or no input
+    if labels_df[['path', 'label', split]].isnull().any(axis=1).any():
+        logger.warning(f"!!!Caution Missing values getting dropped {len(labels_df[labels_df[['path', 'label']].isnull().any(axis=1)])}"
+                      f" from which are {len(labels_df[labels_df['label'].isna()])} missing labels and "
+                      f"{len(labels_df[labels_df['path'].isna()])} missing files \n"
+                      f"--> writing missing files into {cfg.prj_folder + 'missing_files.csv'} "
+                      f" if these have labels")
+
+        if not labels_df[(labels_df['path'].isna()) & (labels_df['label'].notna())].empty:
+            labels_df[(labels_df['path'].isna()) & (labels_df['label'].notna())].to_csv(cfg.prj_folder + 'missing_files.csv', index=False)
+    # drop all which have no label, no path or no split
+    labels_df = labels_df.dropna(subset=['path', 'label', split])
+    logger.debug('labels df after dropping na values in path, label and split\n%s', labels_df)
+    logger.debug('Missing values in label df after dropping na values\n%s', labels_df[labels_df.isna().any(axis=1)])
     label_mapping = {}
     add_params = {}
     scaler = False
-    for c in labels_df.columns:
-        print(labels_df[c].value_counts(dropna=False))
+    if cfg.verbose:
+        for c in labels_df.columns:
+            logger.debug('labels_df value counts %s', labels_df[c].value_counts(dropna=False))
     if mode == 'categorical':
         replace_d = {}
         values_df = pd.DataFrame(labels_df[col].value_counts())
@@ -462,7 +451,7 @@ def load_labels(file, col, base_path=False, mode='categorical', drop=0.05, norma
             if row[1][col] > len(labels_df) * drop:
                 replace_d[row[0]] = nr
                 if cfg.verbose:
-                    print('label:', row[0], 'n:', row[1][col])
+                    logger.debug('label:', row[0], 'n:', row[1][col])
             else:
                 replaced = False
                 if special_rep:
@@ -470,52 +459,52 @@ def load_labels(file, col, base_path=False, mode='categorical', drop=0.05, norma
                 if map_drop_to_other and not replaced:
                     replace_d[row[0]] = 'other'
                     if cfg.verbose:
-                        print('replaced label:', row[0], 'n:', row[1][col], '< threshold', len(labels_df) * drop,
+                        logger.debug('replaced label:', row[0], 'n:', row[1][col], '< threshold', len(labels_df) * drop,
                               'with "other"')
                 else:
                     replace_d[row[0]] = np.NaN
                     if cfg.verbose:
-                        print('dropped label:', row[0], 'n:', row[1][col], '< threshold', len(labels_df) * drop)
+                        logger.debug('dropped label:', row[0], 'n:', row[1][col], '< threshold', len(labels_df) * drop)
         labels_df = labels_df.replace({'label': replace_d})
-        labels_df = labels_df.dropna()
+        labels_df = labels_df.dropna(subset=['label'])
         labels_df['label'] = labels_df['label'].astype(int)
         label_mapping = {v: k for k, v in replace_d.items() if not np.isnan(v)}
         # drop
     elif mode == 'regression':
-        print('Some basic statistics before normalization/transformation:')
-        add_params = {'mean': labels_df['label'].mean(), 'std': labels_df['label'].std(),
-                      'skew': labels_df['label'].skew()}
-        print('min', min(labels_df['label']))
-        print('max', max(labels_df['label']))
-        print('std deviation', labels_df['label'].std())
-        print('mean', labels_df['label'].mean())
-        print('skew', labels_df['label'].skew())
+        logger.debug('Some basic statistics before normalization/transformation:')
+        add_params = {'mean: DF': labels_df['label'].mean(), 'std: DF': labels_df['label'].std(),
+                      'skew: DF': labels_df['label'].skew(), 'size: DF': len(labels_df),
+                      'kurtosis: DF': labels_df['label'].kurtosis()}
+        logger.debug('min %s', min(labels_df['label']))
+        logger.debug('max %s', max(labels_df['label']))
+        logger.debug('std deviation %s', labels_df['label'].std())
+        logger.debug('mean %s', labels_df['label'].mean())
+        logger.debug('skew %s', labels_df['label'].skew())
+
+
         if reverse_label:
             labels_df['label'] = labels_df['label'] * (-1.0)
             labels_df['reversed'] = labels_df['label']
-        for val in [min_value, max_value]:
-            if val is not False:
-                # get rid of outlier
-                print('min/max val', val)
-                #setting to min/max value
-                if val > 0:
-                    print(labels_df[labels_df['label'] >= val]['label'])
-                    labels_df['label'] = np.where(labels_df['label'].between(val, 99999999999), val,
-                                              labels_df['label'])
-                else:
-                    print(labels_df[labels_df['label'] <= val]['label'])
-                    labels_df['label'] = np.where(labels_df['label'].between(-99999999999, val), val,
-                                              labels_df['label'])
-                print(labels_df[labels_df['label'] == val]['label'])
-                #dropping
-                if drop_min_max_value:
-                    labels_df['label'] = labels_df['label'].replace({val: np.NaN})
-                    print('dropping due to min/max value', val, len(labels_df[labels_df['label'].isna()]['label']))
-                    labels_df = labels_df.dropna()
-                    # if val > 0:
-                    #     print('dropped', labels_df[labels_df['label'] >= val]['label'])
-                    # else:
-                    #     print('dropped', labels_df[labels_df['label'] <= val]['label'])
+            # min max value (dropping or setting to min/max value)
+
+        if min_std or max_std:
+            logger.info('min/max value: %s %s %s %s %s %s', min_std, max_std, 'dropping min/max:', labels_df['label'].min(),
+                        labels_df['label'].max())
+            visualizations.standard_hist_from_df(labels_df['label'], run_path, '',
+                                                     title_in='Before removing MIN MAX', xlim=False)
+            if drop_min_max_value:
+                if max_std:
+                    labels_df = labels_df[labels_df['label'] <= max_std * labels_df['label'].std()]
+                if min_std:
+                    labels_df = labels_df[labels_df['label'] >= min_std * labels_df['label'].std()]
+            else:
+                if max_std:
+                    labels_df.loc[labels_df['label'] >= max_std * labels_df['label'].std(), 'label'] = \
+                        max_std * labels_df['label'].std()
+                if min_std:
+                    labels_df.loc[labels_df['label'] <= min_std * labels_df['label'].std(), 'label'] = \
+                        min_std * labels_df['label'].std()
+
         if transform == 'boxcox':
             #boxcox doesnt work with 0
             # replace_d = {'label': {0: 0.1}}
@@ -529,19 +518,24 @@ def load_labels(file, col, base_path=False, mode='categorical', drop=0.05, norma
             array, lmbda = stats.boxcox(labels_df['label'])
             add_params['lmbda'] = lmbda
             labels_df['label'] = array
+        elif transform:
+            raise NotImplementedError('Transform not implemented:', transform)
+
         if transform:
-            add_params['skew after transforming'] = labels_df['label'].skew()
-            print('Some basic statistics after transforming w', transform, ':')
-            print('min', min(labels_df['label']))
-            print('max', max(labels_df['label']))
-            print('std deviation', labels_df['label'].std())
-            print('mean', labels_df['label'].mean())
-            print('skew', labels_df['label'].skew())
+            add_params['skew: after transforming'] = labels_df['label'].skew()
+            add_params['mean: after transforming'] = labels_df['label'].mean()
+            add_params['std: after transforming'] = labels_df['label'].std()
+            add_params['kurtosis: after transforming'] = labels_df['label'].kurtosis()
+            logger.info('Some basic statistics after transforming w', transform, ':')
+            logger.info('min %s', min(labels_df['label']))
+            logger.info('max %s', max(labels_df['label']))
+            logger.info('std deviation %s', labels_df['label'].std())
+            logger.info('mean %s', labels_df['label'].mean())
+            logger.info('skew %s', labels_df['label'].skew())
             labels_df['transformed'] = labels_df['label']
+            visualizations.standard_hist_from_df(labels_df['transformed'], run_path, '', title_in='Transformation')
 
         if normalization:
-            add_params['normalization mean'] = labels_df['label'].mean()
-            add_params['normalization standard deviation'] = labels_df['label'].std()
             if normalization == '0,1':
                 scaler = MinMaxScaler()
                 labels_df['label'] = scaler.fit_transform(np.array(labels_df['label']).reshape(-1, 1))
@@ -550,49 +544,78 @@ def load_labels(file, col, base_path=False, mode='categorical', drop=0.05, norma
                 labels_df['label'] = scaler.fit_transform(np.array(labels_df['label']).reshape(-1, 1))
             else:
                 raise NotImplementedError
-            add_params['skew after normalization'] = labels_df['label'].skew()
-            add_params['mean after normalization'] = labels_df['label'].mean()
-            print('Some basic statistics after', normalization, ':')
-            print('min', min(labels_df['label']))
-            print('max', max(labels_df['label']))
-            print('std deviation', labels_df['label'].std())
-            print('mean', labels_df['label'].mean())
-            print('skew', labels_df['label'].skew())
+            add_params['skew: df (normalized)'] = labels_df['label'].skew()
+            add_params['mean: df (normalized)'] = labels_df['label'].mean()
+            add_params['std: df (normalized)'] = labels_df['label'].std()
+            add_params['kurtosis: df (normalized)'] = labels_df['label'].kurtosis()
+            logger.info('Some basic statistics after %s %s', normalization, 'normalization:')
+            logger.info('min %s', min(labels_df['label']))
+            logger.info('max %s', max(labels_df['label']))
+            logger.info('std deviation %s', labels_df['label'].std())
+            logger.info('mean %s', labels_df['label'].mean())
+            logger.info('skew %s', labels_df['label'].skew())
             labels_df['normalized'] = labels_df['label']
+            visualizations.standard_hist_from_df(labels_df['normalized'], run_path, '', title_in='Normalization')
         else:
-            print('Did not normalize')
+            logger.info('Did not normalize')
 
-    train_df = labels_df[labels_df[split] == 'train']
+    # train_df = labels_df[labels_df[split] == 'train']
+    # validation_df = labels_df[labels_df[split] == 'validation']
+    split_dfs = []
+    for spl in labels_df[split].unique():
+        logger.debug(spl)
+        spl_df = labels_df[labels_df[split] == spl]
+        add_params['mean: ' + spl] = spl_df['label'].mean()
+        add_params['std: ' + spl] = spl_df['label'].std()
+        add_params['skew: ' + spl] = spl_df['label'].skew()
+        add_params['size: ' + spl] = len(spl_df)
+        add_params['kurtosis: ' + spl] = spl_df['label'].kurtosis()
 
-    validation_df = labels_df[labels_df[split] == 'validation']
-    test_df = labels_df[labels_df[split] == 'test']
-    if cfg.test_mode:
-        train_df = train_df[:100]
-        validation_df = validation_df[:100]
-        test_df = test_df[:100]
-        print('testing mode!!! Limited train df:', len(train_df))
-    for st, df in zip(['all labels', 'train', 'validation', 'test'], [labels_df, train_df, validation_df, test_df]):
-        if st == 'validation' or st == 'test':
-            if len(df) / len(labels_df) <= 0.09 or len(df) / len(labels_df) >= 0.15:
-                print(st, df)
-                print('CAUTION!!!: DF has critically low or high amount of values', len(df) / len(labels_df))
-    labels_amount = {'data amount': len(labels_df),
-                     'train amount': len(train_df), 'train percentage': len(train_df)/len(labels_df),
-                     'validation amount': len(validation_df), 'validation percentage': len(validation_df) / len(labels_df),
-                     'test amount': len(test_df), 'test percentage': len(test_df) / len(labels_df)}
-    for k, v in labels_amount.items():
-        print(k, v)
-    print('Input Df')
-    print(labels_df['label'])
+        if spl == 'test':
+            test_df = spl_df
+            if abs(test_df['label'].mean() - labels_df['label'].mean()) > 0.05:
+                logger.warning('test df mean is too different from whole df mean')
+                logger.warning('test df mean: %s', test_df['label'].mean())
+                logger.warning('whole df mean: %s', labels_df['label'].mean())
+                # input('Are you sure you want to continue?')
+            if abs(test_df['label'].std() - labels_df['label'].std()) > 0.1:
+                logger.warning('test df std is too different from whole df std')
+                logger.warning('test df std: %s', test_df['label'].std())
+                logger.warning('whole df std: %s', labels_df['label'].std())
+                # input('Are you sure you want to continue?')
+            if abs(test_df['label'].skew() - labels_df['label'].skew()) > 0.1:
+                logger.warning('test df skew is too different from whole df skew')
+                logger.warning('test df skew: %s', test_df['label'].skew())
+                logger.warning('whole df skew: %s', labels_df['label'].skew())
+                # input('Are you sure you want to continue?')
+            if abs(test_df['label'].kurtosis() - labels_df['label'].kurtosis()) > 0.1:
+                logger.warning('test df kurtosis is too different from whole df kurtosis')
+                logger.warning('test df kurtosis: %s', test_df['label'].kurtosis())
+                logger.warning('whole df kurtosis: %s', labels_df['label'].kurtosis())
+                # input('Are you sure you want to continue?')
+            if cfg.test_mode:
+                test_df = spl_df[:math.floor(cfg.test_mode / 10)]
+        else:
+            if cfg.test_mode:
+                spl_df = spl_df[:math.floor(cfg.test_mode / 5)]
+                logger.warning('testing mode!!! Limited train df: %s', len(spl_df) * 5)
+            split_dfs.append(spl_df)
+            visualizations.standard_hist_from_df(spl_df['label'], run_path, 'Label', title_in=spl)
+    visualizations.standard_hist_from_df(labels_df['label'], run_path, '', title_in='Label')
+
+    logger.debug('Input Df')
+    logger.debug(labels_df['label'])
+    logger.debug(labels_df.count())
+    for st, df in zip(['test'] + [s[split].iloc[0] for s in split_dfs], [test_df] + split_dfs):
+        if len(df) / len(labels_df) <= 0.08 or len(df) / len(labels_df) >= 0.22:
+            logger.warning('%s df\n %s', st, df)
+            logger.warning(f'CAUTION!!!: DF has critically low or high amount of values {len(df) / len(labels_df)} \n')
     if len(labels_df['label']) <= break_v:
-        print('WARNING!!!: length of labels is below', break_v, 'len labels', len(labels_df['label']))
-    return train_df, validation_df, test_df, labels_df, label_mapping, labels_amount, add_params, scaler
-
-#
-# def reverse_zscore(df, mean, std):
-#     '''Mean and standard deviation should be of original variable before standardization'''
-#     return_df = df * std + mean
-#     return return_df
+        logger.warning('WARNING!!!: length of labels is below %s %s %s', break_v, 'len labels', len(labels_df['label']))
+        input('Are you sure you want to continue?')
+    #sort add params
+    add_params = {k: v for k, v in sorted(add_params.items(), key=lambda item: item[0])}
+    return split_dfs, test_df, labels_df, label_mapping, add_params, scaler
 
 
 def reverse_norm_transform(df, normalization, transform, scaler, additional_params, run_path, **kwargs):
@@ -601,9 +624,9 @@ def reverse_norm_transform(df, normalization, transform, scaler, additional_para
             normalization = v
         elif k == 'label transform':
             transform = v
-    print('transform', transform)
-    print('normalization', normalization)
-    new_df = df
+    logger.info('transform', transform)
+    logger.info('normalization', normalization)
+    new_df = df.copy()
     for col in new_df.columns:
         if normalization:
             if normalization == 'Z':
@@ -614,7 +637,8 @@ def reverse_norm_transform(df, normalization, transform, scaler, additional_para
                 new_df[col] = scaler.inverse_transform(np.array(new_df[col]).reshape(-1, 1))
             else:
                 raise NotImplementedError('Did not implement', normalization)
-            visualizations.histogram(new_df[col], 'probability', col + ' denormalized', run_path, col + ' denormalized')
+            visualizations.standard_hist_from_df(new_df[col], run_path, col, title_in='Denormalized')
+            # visualizations.histogram(new_df[col], 'probability', col + ' denormalized', run_path, col + ' denormalized')
 
         if transform:
             if transform == 'boxcox':
@@ -623,31 +647,352 @@ def reverse_norm_transform(df, normalization, transform, scaler, additional_para
                     new_df[col] = new_df[col] - additional_params['shift value']
             else:
                 raise NotImplementedError('Did not implement', transform)
-            visualizations.histogram(new_df[col], 'probability', col + ' detransformed', run_path, col + ' detransformed')
+            visualizations.standard_hist_from_df(new_df[col], run_path, col, title_in='Detransformed')
+            # visualizations.histogram(new_df[col], 'probability', col + ' detransformed', run_path, col + ' detransformed')
     return new_df
 
 
+def augmentation(**kwargs):
+    layer_l = []
+    for k, v in kwargs.items():
+        if k == 'horizontal_flip' and v == True:
+            layer_l.append(preprocessing.RandomFlip("horizontal"))
+        elif k == 'vertical_flip' and v == True:
+            layer_l.append(preprocessing.RandomFlip("vertical"))
+        elif k == 'zoom_range':
+            layer_l.append(preprocessing.RandomZoom(height_factor=(-v, v)))
+        elif k == 'rotation_range':
+            layer_l.append(preprocessing.RandomRotation((-v, v)))
+        else:
+            raise NotImplementedError()
+    data_augmentation_layers = False
+    if layer_l:
+        logger.info('Augmentation layers %s', layer_l)
+        data_augmentation_layers = tf.keras.Sequential(layer_l)
+        logger.debug('%s', data_augmentation_layers)
+    return data_augmentation_layers
+
+
+def evaluate_dataset(model, evaluate_ds, steps_per_epoch_evaluate, run_path, label_mapping, add_params, scaler,
+                     label_d, split, evaluate_df, additional_reports_d, add_name='', evaluate_mode='test',
+                     label_col_in=False):
+    beta, alpha, pearson_corr, rmse, nrmse = False, False, False, False, False
+    logger.debug(evaluate_mode)
+    logger.debug('ds %s', evaluate_ds)
+    logger.debug('eval df\n%s', evaluate_df)
+    logger.debug(evaluate_df.columns)
+    evaluate_df = evaluate_df.copy()
+    # Create Confusion matrix for the evaluate dataset
+    # Get np array of predicted labels and true labels for evaluate dataset
+    evaluate_pred = model.predict(evaluate_ds, steps=steps_per_epoch_evaluate)
+    evaluate_true = np.concatenate([y for x, y in evaluate_ds], axis=0)
+    if cfg.type_m == 'categorical':
+        evaluate_pred = np.argmax(evaluate_pred, axis=1)
+        evaluate_true = np.argmax(evaluate_true, axis=1)
+    else:
+        evaluate_pred = np.array(evaluate_pred).reshape(-1)
+        evaluate_true = np.array(evaluate_true).reshape(-1)
+    assert len(evaluate_pred) == len(evaluate_true)
+    evaluate_df['Prediction'] = evaluate_pred
+    evaluate_df['Actual'] = evaluate_df['label'].copy()
+    evaluate_df[f'manual Actual true'] = evaluate_true
+    logger.debug('evaluate df after prediction\n%s', evaluate_df)
+    if not evaluate_df['Actual'].equals(evaluate_df[f'manual Actual true']):
+        logger.debug(evaluate_df[['Actual', f'manual Actual true']])
+        raise ValueError("the two different Actual values do not match...")
+    evaluate_df = evaluate_df.drop("manual Actual true", axis=1)
+
+    if cfg.type_m == 'regression':
+        beta, alpha, pearson_corr, rmse, nrmse = \
+            visualizations.scatterplotRegressionMultiInputs(df=evaluate_df[["Actual", "Prediction"]], run_path=run_path,
+                                                 file_name=split + evaluate_mode + add_name)
+        for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse"],
+                         [beta, alpha, pearson_corr, rmse, nrmse]):
+            additional_reports_d[f"{evaluate_mode}_{na}"] = v
+        if cfg.report_original_data and \
+                (cfg.label_normalization or cfg.label_transform or 'label normalization' in label_d
+                 or 'transformation' in label_d):
+            reversed_evaluate_prediction = reverse_norm_transform(evaluate_df[["Actual", "Prediction"]].copy(),
+                                                     cfg.label_normalization, cfg.label_transform,
+                                                     scaler,
+                                                     additional_params=add_params,
+                                                     run_path=run_path, **label_d)
+            evaluate_df["Actual Original Data"] = reversed_evaluate_prediction["Actual"]
+            evaluate_df["Pred Original Data"] = reversed_evaluate_prediction["Prediction"]
+            beta, alpha, pearson_corr, rmse, nrmse = \
+                visualizations.scatterplotRegressionMultiInputs(df=evaluate_df[["Actual Original Data", "Pred Original Data"]],
+                                                     run_path=run_path,
+                                                     file_name='Original_Data_' + split + evaluate_mode + add_name)
+            for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse"],
+                             [beta, alpha, pearson_corr, rmse, nrmse]):
+                additional_reports_d[f"{evaluate_mode}_{na}_Original_Data"] = v
+            #proven works
+            # if label_col_in:
+            #     beta, alpha, pearson_corr, rmse, nrmse = \
+            #         visualizations.scatterplotRegression(df=evaluate_df[[label_col_in, "Actual Original Data"]],
+            #                                              run_path=run_path,
+            #                                              file_name='Original_Data_compare' + split + add_name)
+    evaluate_df.to_csv(run_path + f'{evaluate_mode}_df_{split}.csv', index=False)
+
+    sk_metrics_d = {}
+    if cfg.type_m == 'categorical':
+        logger.debug(len(evaluate_pred), len(evaluate_true))
+        logger.debug('evaluatepred', evaluate_pred)
+        logger.debug('true', evaluate_true)
+        # test_prediction = np.array(test_pred)
+        # test_true = np.array(test_true)
+        add_params['f1 micro'] = f1_score(evaluate_true, evaluate_pred, average='micro')
+
+        # Confusion matrix
+        cm_plot_labels = list(label_mapping.values())
+        visualizations.plot_CM(evaluate_true, evaluate_pred, cm_plot_labels, run_path +
+                               'ConfusionMatrix' + add_name)
+        # create sklearn report (for f1 score and more)
+        classification_d = classification_report(evaluate_true, evaluate_pred, output_dict=True,
+                                                 target_names=cm_plot_labels)
+        logger.debug('evaluate classification', classification_d)
+        logger.debug('f1', add_params['f1 micro'])
+        # transform for one row
+        for class_name, sdic in classification_d.items():
+            try:
+                for metric_n, v in sdic.items():
+                    sk_metrics_d[class_name + ': ' + metric_n] = v
+            except AttributeError:
+                sk_metrics_d[class_name] = sdic
+    return additional_reports_d, sk_metrics_d, evaluate_df
+
+
+def evaluate_final_dataset(test_dfs_l, val_dfs_l, run_path, split_names, split_col):
+    if cfg.type_m == 'regression':
+        beta, alpha, pearson_corr, rmse, nrmse = False, False, False, False, False
+        eval_d = {}
+        #combine test dfs and calculate the mean prediction of all models as well as test df specific parameters
+        mean_test_df = test_dfs_l[0].copy()
+        for split_name, tdf in zip(split_names, test_dfs_l):
+            mean_test_df[f"{split_name} Prediction"] = tdf["Prediction"]
+            if "Pred Original Data" in tdf.columns:
+                mean_test_df[f"{split_name} Pred Original Data"] = tdf["Pred Original Data"]
+        #drop the test_dfs_l[0] "Prediction" columns (still available as "split X Prediction"
+        mean_test_df = mean_test_df.drop("Prediction", axis=1)
+        if "Pred Original Data" in mean_test_df.columns:
+            mean_test_df = mean_test_df.drop("Pred Original Data", axis=1)
+
+        #calculate mean and STDs
+        if cfg.report_original_data:
+            pred_l = ["Prediction", "Pred Original Data"]
+        else:
+            pred_l = ["Prediction"]
+        for pred in pred_l:
+            pred_cols_l = [c for c in mean_test_df.columns if pred in c]
+            if pred_cols_l:
+                mean_test_df[pred] = mean_test_df[pred_cols_l].mean(axis=1)
+                mean_test_df[f"STD {pred}"] = mean_test_df[pred_cols_l].std(axis=1)
+                # calc statistics of std
+                eval_d[f"mean(Std test {pred})"] = mean_test_df[f"STD {pred}"].mean()
+                eval_d[f"median(Std test {pred})"] = mean_test_df[f"STD {pred}"].median()
+                eval_d[f"min(Std test {pred})"] = mean_test_df[f"STD {pred}"].min()
+                eval_d[f"max(Std test {pred})"] = mean_test_df[f"STD {pred}"].max()
+                eval_d[f"Std(Std test {pred})"] = mean_test_df[f"STD {pred}"].std()
+        #
+        concat_test_df_l = []
+        for n, tdf in zip(split_names, test_dfs_l):
+            tdf['split model'] = n
+            concat_test_df_l.append(tdf)
+        #concat test_df to show different performance of split models
+        concat_test_df = pd.concat(concat_test_df_l)
+
+        #combine val dfs
+        final_val_df = pd.concat(val_dfs_l)
+
+        #combine val and test df
+        # drop_cols = [c for c in mean_test_df.columns if 'STD ' in c or "split" in c]
+        combine_test_df = test_dfs_l[0].copy()
+        combine_test_df = combine_test_df.drop(columns='split model')
+        combine_test_df["Prediction"] = mean_test_df["Prediction"]
+        if "Pred Original Data" in mean_test_df.columns:
+            combine_test_df["Pred Original Data"] = mean_test_df["Pred Original Data"]
+        combined_df = pd.concat([final_val_df, combine_test_df])
+        # input('wait1')
+
+        #create aggregates
+        combined_aggregate_l = []
+        # combined_aggregate_names_l = ["adm2_unweighted", "adm2_weighted", "adm1_unweighted", "adm1_weighted",
+        #                               "adm0_unweighted", "adm0_weighted"]
+        combined_aggregate_names_l = ["adm2_unweighted", "adm1_unweighted", "adm0_unweighted"]
+        for adm in ["adm2_name", "adm1_name", "adm0_name"]:
+            combined_df_adm2 = combined_df.copy()
+            combined_aggregate_df_adm2 = combined_df_adm2.groupby(adm).mean()
+            combined_aggregate_l.append(combined_aggregate_df_adm2)
+            weights = combined_df_adm2['households'] / combined_df_adm2.groupby(adm)['households'].transform('sum')
+            add_df = combined_df_adm2[[adm, 'households']].copy()
+            clusters = add_df[adm].value_counts().reset_index()
+            clusters.columns = [adm, 'clusters']
+            hh = add_df.groupby(adm).sum().reset_index()
+            hh.columns = [adm, 'households sum']
+            num_cols = combined_df_adm2.select_dtypes(include=['int64', 'float64']).columns
+            combined_df_adm2[num_cols] = combined_df_adm2[num_cols].multiply(weights, axis=0)
+            # combined_df_adm2 = combined_df_adm2.drop("weights", axis=0)
+            # combined_aggregate_df_adm2_weighted = combined_df_adm2.groupby(adm).mean()
+            # combined_aggregate_df_adm2_weighted = pd.merge(combined_aggregate_df_adm2_weighted, clusters, on=adm)
+            # combined_aggregate_df_adm2_weighted = pd.merge(combined_aggregate_df_adm2_weighted, hh, on=adm)
+            # print('adm weighted\n', combined_aggregate_df_adm2_weighted)
+            # combined_aggregate_l.append(combined_aggregate_df_adm2_weighted)
+
+        #create scatterplots
+        for name, df in zip(['Val', 'Val: different Split Models', 'Test: Mean', 'Test: all Models',
+                             'Val + Test Mean', 'Val + Test Mean: different Split Models'] +
+                            combined_aggregate_names_l,
+                            [final_val_df, final_val_df, mean_test_df, concat_test_df, combined_df, combined_df]
+                            + combined_aggregate_l):
+            df = df.reset_index()
+            df['Error'] = df['Prediction'] - df['Actual']
+            df['Absolute Error'] = df['Error'].abs()
+            if name not in ['Val: different Split Models', 'Test: all Models', 'Val + Test Mean: different Split Models']:
+                split_col_sdf = False
+                sub_df = df[["Actual", "Prediction"]]
+            else:
+                split_col_sdf = split_col
+                if name == 'Test: all Models':
+                    split_col_sdf = 'split model'
+                sub_df = df[["Actual", "Prediction", split_col_sdf]]
+            beta, alpha, pearson_corr, rmse, nrmse = visualizations.scatterplotRegressionMultiInputs(sub_df, run_path, file_name=name,
+                                                            multidataset_col=split_col_sdf)
+            df.to_csv(run_path + 'combined ' + name + '.csv', index=False)
+            for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse"],
+                             [beta, alpha, pearson_corr, rmse, nrmse]):
+                eval_d[f"{name} {na}"] = v
+            if "Pred Original Data" in df.columns and cfg.report_original_data:
+                if name not in ['Val: different Split Models', 'Test: all Models', 'Val + Test Mean: different Split Models']:
+                    split_col_sdf = False
+                    sub_df = df[["Actual Original Data", "Pred Original Data"]]
+                else:
+                    split_col_sdf = split_col
+                    if name == 'Test: all Models':
+                        split_col_sdf = 'split model'
+                    sub_df = df[["Actual", "Prediction", split_col_sdf]]
+                beta, alpha, pearson_corr, rmse, nrmse = visualizations.scatterplotRegressionMultiInputs(sub_df,
+                                                                run_path, file_name=name + " Original Data",
+                                                                multidataset_col=split_col_sdf)
+                for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse"],
+                                 [beta, alpha, pearson_corr, rmse, nrmse]):
+                    eval_d[f"{name} {na} Original Data"] = v
+    else:
+        raise NotImplementedError("Overall evaluation of a categorical model is not implemented right now")
+    return eval_d
+
+
+# def create_label_visualizations(run_path, labels_df, test_df, label_name, split_col_n):
+#     with open(run_path + 'dfs_in', 'wb') as f:
+#         pickle.dump([labels_df, test_df], f)
+#     df = labels_df.copy()
+#     for col in df.columns:
+#         if col in ['reversed', 'transformed', 'normalized', 'label']:
+#             visualizations.standard_hist_from_df(df[col], run_path, '', title_in=col)
+#             if col == 'label':
+#                 for split in labels_df[split_col_n].unique():
+#                     sub_df = df[df[split_col_n] == split]
+#                     visualizations.standard_hist_from_df(sub_df[col], run_path, col, title_in=split)
+#             # visualizations.histogram(df[col], 'probability', title, run_path,
+#             #                          label_name + df_n + ' ' + add_n)
+
+
+def visualize_augmented_images(augmentation_d, train_ds, augmented_images_path):
+    ###Visualize results
+    # save augmented images
+    logger.info('aug %s', augmentation_d)
+    if augmentation_d:
+        data_augmentation = augmentation(**augmentation_d)
+    for images, _ in train_ds.take(1):
+        for nr, image in enumerate(images):
+            logger.debug('%s %s', nr, image.shape)
+            logger.debug(augmentation_d)
+            plt.figure(figsize=(10, 10))
+            for i in range(9):
+                # if augmentation_d:
+                #     img = data_augmentation(image)
+                img = image
+                ax = plt.subplot(3, 3, i + 1)
+                img = img.numpy().astype("float32")
+                img = np.moveaxis(img, 0, -1)
+                img = (img - np.min(img)) / (np.max(img) - np.min(img))
+                plt.imshow(img)
+                plt.axis("off")
+            plt.savefig(augmented_images_path + str(nr) + '_unaugmented')
+            plt.close()
+            # plt.show()
+
+            if augmentation_d:
+                plt.figure(figsize=(10, 10))
+                logger.debug('augmented image')
+                for i in range(9):
+                    if augmentation_d:
+                        img = data_augmentation(image)
+                    else:
+                        img = image
+                    ax = plt.subplot(3, 3, i + 1)
+                    img = img.numpy().astype("float32")
+                    img = np.moveaxis(img, 0, -1)
+                    img = (img - np.min(img)) / (np.max(img) - np.min(img))
+                    plt.imshow(img)
+                    plt.axis("off")
+                plt.savefig(augmented_images_path + str(nr) + '_augmented')
+                plt.close()
+                # plt.show()
+            if nr >= cfg.save_augmented_images:
+                break
+    if cfg.verbose:
+        logger.info('saved augmented images to %s', augmented_images_path)
+
+
 def main():
-    for label_name_in, dic in cfg.label_name.items():
+    for [split_col, [label_name_in, label_d], img_path, augmentation_d, dim] in cfg.splitn_labeld_imgp_augmentation_dimension_l:
         label_name = label_name_in[:-1]
-        print('modelling water supply', label_name, 'type', cfg.type_m)
+        logger.info('modelling water supply %s %s %s', label_name, 'type', cfg.type_m)
         # Import paths I
         prj_path = cfg.prj_folder
-        paths_dict = {
-            'sentinel_path': ['base_path', 'Sentinel2/', False],
-            'sentinel_img_path': ['sentinel_path', 'preprocessed/water/urban/', False],
-            'train_path': ['sentinel_img_path', 'train/', False],
-            'val_path': ['sentinel_img_path', 'validation/', False],
-            'test_path': ['sentinel_img_path', 'test/', False]}
-        # create paths
-        # [sentinel_path, sentinel_img_path, train_path, val_path, test_path] = \
-        #     hu.paths_from_base_path(cfg.base_folder, paths_dict)
-        # load labels and class_weights from file (or calculate later one)
 
-        train_df, validation_df, test_df, labels_df, label_mapping, labels_amount, add_params, scaler = \
-            load_labels(os.path.join(cfg.labels_f), label_name, base_path='/mnt/datadisk/data/Sentinel2/raw/',
-                        mode=cfg.type_m, normalization=cfg.label_normalization,
-                        transform=cfg.label_transform, split=cfg.split, **dic)
+        if cfg.load_subfolders:
+            folders = hu.files_in_folder(cfg.img_path, return_folders=True)
+        else:
+            folders = cfg.img_path
+        logger.debug('folders %s', folders)
+
+        logger.info('heigh, width = %s (False meaning max)', dim)
+        if not dim:
+            logger.warning(f'This model assumes that you have preprocessed images, which need to have the exact same size')
+            height = False
+            width = False
+        else:
+            height = dim
+            width = dim
+        if not cfg.test_mode:
+            epochs = cfg.epochs
+        else:
+            epochs = 1
+            height = 100
+            width = 100
+            logger.warning(f"You are in test mode! Change in config for real runs! epochs = {epochs}, image height and"
+                          f"width capped to {height} {width}")
+
+        # create new folders for run files
+        train_history_path, run_path, modelcheckpoint_p, augmented_images_path, run_name = \
+            create_run_folders(augmentation_d, img_path, prj_path, cfg.trainHistory_subname,
+                               label_name_in, split_col, height, width)
+
+        # load labels and class_weights from file (or calculate later one)
+        split_dfs, test_df, labels_df, label_mapping, add_params, scaler = \
+            load_labels(os.path.join(cfg.labels_f), label_name, run_path, base_path=img_path,
+                        mode=cfg.type_m, split=split_col, min_year=cfg.label_min_year,
+                        **label_d)
+        # add_params['img height'] = height
+        # add_params['img width'] = width
+        #load shape
+        file = split_dfs[0]['path'].iloc[0]
+        arr = gu.load_geotiff(file, height=height, width=width, channel_l=cfg.channels, only_return_array=True)
+        input_shape = arr.shape
+        if cfg.verbose:
+            logger.info('Using following shape (must be identical for all loaded datasets) %s', input_shape)
+
         if cfg.type_m == 'categorical':
             num_labels = len(label_mapping)
             class_weights = class_weight.compute_class_weight('balanced', classes=np.unique(labels_df['label']),
@@ -657,146 +1002,170 @@ def main():
             num_labels = 1
             class_weights = False
 
-        # iterating over multiple normalization and augmentation Settings of IDG (Test routine)
-        for normalization_key, normalization_d in cfg.IDG_normalization_d.items():
-            t_begin = time.time()
-            with strategy.scope():
-                train_ds, val_ds, test_ds = \
-                    generator_n_dataset_creator(train_df, validation_df, test_df, num_labels, cfg.type_m)
-            if cfg.generator == 'ImageDataGenerator':
-                with strategy.scope():
-                    [(train_x, train_y), (val_x, val_y), (test_x, test_y)], t_ele, t_transform, t_ges_transform = \
-                        nnu.transform_data_for_ImageDataGenerator([train_ds, val_ds, test_ds])
-            load_time = time.time() - t_begin
+
+        # create some label visualisations
+        # create_label_visualizations(run_path, labels_df, test_df, label_name, split_col)
+
+        split_names = [spdf[split_col].iloc[0] for spdf in split_dfs]
+        split_names = list(sorted(split_names))
+        if cfg.dont_use_crossval:
+            split_names = split_names[:cfg.dont_use_crossval]
+        logger.debug('final split names %s', split_names)
+        run_summary_splits_f = os.path.join(train_history_path, 'run_summary_splits' + label_name_in + '.csv')
+        run_summary_f = os.path.join(train_history_path, 'run_summary' + label_name_in + '.csv')
+        run_summary_overall_f = os.path.join(cfg.prj_folder, cfg.trainHistory_subname, 'run_summary' + '.csv')
+        if os.path.exists(run_summary_f):
+            run_summary_df = pd.read_csv(run_summary_f)
+        else:
+            run_summary_df = False
+        if os.path.exists(run_summary_overall_f):
+            run_summary_overall_df = pd.read_csv(run_summary_overall_f)
+        else:
+            run_summary_overall_df = False
+
+        val_dfs_l = []
+        test_dfs_l = []
+        add_rep = {'run_name': run_name, 'split name': split_col,
+                   'Train, val, test mode': cfg.dont_use_crossval,
+                   'img height': height, 'img width': width, 'label name': label_name,
+                   **augmentation_d, **label_d}
+        for k,v in add_rep.items():
+            logger.info(f'{k}: {v}')
+        for split_nr, split_name in enumerate(split_names):
+            add_rep['split'] = split_name
+            logger.info('Test mode (images) %s', cfg.test_mode)
+            logger.info('input path %s', img_path)
+            logger.info('Validation split %s', split_name)
+            logger.info('training on %s', [spldf[split_col].iloc[0] for spldf in split_dfs if
+                                           spldf[split_col].iloc[0] != split_name])
+            validation_df = split_dfs[split_nr]
+            logger.debug(validation_df.head())
+
+            train_df = pd.concat(split_dfs[0:split_nr] + split_dfs[split_nr + 1:])
+            modelcheckpoint_path = modelcheckpoint_p + f'chkpt_{split_name}'
+            if os.path.exists(run_summary_splits_f):
+                run_summary_splits_df = pd.read_csv(run_summary_splits_f)
+            else:
+                run_summary_splits_df = False
+
             if cfg.verbose:
-                print('Loaded data in (s)', load_time)
-            for aug_key, augmentation_d in cfg.IDG_augmentation_settings_d.items():
-                if cfg.verbose:
-                    print('normalization_key', normalization_key)
-                    print('normalization_d', normalization_d)
-                    print('aug_key, augmentation_d', aug_key, augmentation_d)
-                    print('labels')
-                    print(labels_df.head())
-                    if cfg.type_m == 'categorical':
-                        print('class weigths', class_weights)
-                        print(label_mapping)
+                if cfg.test_mode:
+                    logger.debug('DS length is: %s', len(train_df))
+                    logger.warning("Test mode is active! Your dataset is significantly shorter")
+                # logger.info('aug_key, augmentation_d %s \n %s', aug_key, augmentation_d)
+                # for spldf in split_dfs[0:split_nr] + split_dfs[split_nr + 1:]:
+                # logger.debug(f'Val split {split_nr} {split_name} labels:')
+                if cfg.type_m == 'categorical':
+                    logger.info('class weigths', class_weights)
+                    logger.info(label_mapping)
+                    logger.info(labels_df['label'].value_counts())
+                    logger.info(labels_df[label_name].value_counts())
 
-                # create new folders for run files
-                train_history_path, run_path, modelcheckpoint_path, augmented_images_path, run_name = \
-                    create_run_folders(augmentation_d, normalization_d, prj_path, cfg.trainHistory_subname,
-                                       label_name_in)
-                #create some label visualisations
-                with open(run_path + 'dfs_in', 'wb') as f:
-                    pickle.dump([labels_df, train_df, validation_df, test_df], f)
-                for df_n, df in zip(['All', 'Train', 'Validation', 'Test'],
-                                    [labels_df, train_df, validation_df, test_df]):
-                    for col in df.columns:
-                        if col in [label_name, 'reversed', 'transformed', 'normalized', 'label']:
-                            add_n = col
-                            if col == label_name:
-                                add_n = 'Raw Data'
-                            elif col == 'label':
-                                add_n = 'Input'
-                            title = label_name.replace('_', ' ').title() + ' ' + '(n=' + str(len(df)) + ')'
-                            visualizations.histogram(df[col], 'probability', title, run_path,
-                                                     label_name + df_n + ' ' + add_n)
+            # create cache path
+            cache_p = os.path.join(cfg.tmp_p, 'cache', run_name, '')
+            if cfg.verbose:
+                logger.debug('cache %s', cache_p)
+            # ensure it gets reloaded
+            if os.path.exists(cache_p):
+                shutil.rmtree(cache_p)
+            os.mkdir(cache_p)
 
-                # save config
-                shutil.copyfile('config.py', run_path + '/config.py')
+            # save config
+            shutil.copyfile('config.py', run_path + '/config.py')
 
+            # strategy scope from tf.distribute.MirroredStrategy(gpus) (cf. top of file) in TF2 is used for mutlti-gpu
+            # usage
+            with strategy.scope():
+                # Everything that creates variables should be under the strategy scope.
+                # In general this is only model construction & `compile()`.
+                # Load Model
+                train_ds, validation_ds, test_ds, steps_per_epoch_train, steps_per_epoch_val, steps_per_epoch_test = \
+                    dataset_creator(train_df, validation_df, test_df, cfg.type_m, num_labels,
+                                    cache_p, height, width, cfg.channels, **augmentation_d)
 
+                # steps_per_epoch=False
+                loss = cfg.loss()
+                metrics_l = []
+                for m in cfg.metrics_l:
+                    metrics_l.append(m())
+                if cfg.type_m == 'categorical':
+                    metrics_l.append(tfa.metrics.F1Score(num_classes=num_labels,
+                          average='micro'))
+                model = model_loader(num_labels, cfg.type_m, input_shape, **augmentation_d)
+                if cfg.load_model_weights:
+                    logger.warning(f"This has not been adjusted to split stuff and only {split_name} will be"
+                                  f"evaluated")
+                    input("Are you sure you want to continue?")
+                    logger.info('Loading model from', cfg.load_model_weights + f'chkpt_{split_name}')
+                    # model = tf.keras.models.load_model(cfg.load_model_weights)
+                    model.load_weights(cfg.load_model_weights + f'chkpt_{split_name}')
+                    logger.debug('Predicting with loaded model', model)
+                    random_dic = \
+                        evaluate_dataset(model, test_ds, steps_per_epoch_test, run_path, label_mapping,
+                                        add_params, scaler, label_d, split_names, test_df, {},
+                                         add_name='_loded_model')
+                    logger.debug('returned from create_vis')
+                ###Define Parameters for run
+                optimizer = optimizer_loading()
+                callbacks_l = callback_loader(run_path, modelcheckpoint_path, metrics_l[0])
 
-                # strategy scope from tf.distribute.MirroredStrategy(gpus) (cf. top of file) in TF2 is used for mutlti-gpu
-                # usage
-                with strategy.scope():
-                    # Everything that creates variables should be under the strategy scope.
-                    # In general this is only model construction & `compile()`.
-                    # Load Model
-                    loss = cfg.loss()
-                    metrics_l = []
-                    for m in cfg.metrics_l:
-                        metrics_l.append(m())
-                    if cfg.type_m == 'categorical':
-                        metrics_l.append(tfa.metrics.F1Score(num_classes=num_labels,
-                              average='micro'))
-                    model = model_loader(num_labels, cfg.type_m)
-                    ###Define Parameters for run
-                    optimizer = optimizer_loading()
-                    callbacks_l = callback_loader(run_path, modelcheckpoint_path, metrics_l[0])
+                model.compile(optimizer=optimizer, loss=loss, metrics=metrics_l)#, run_eagerly=True)
+                # Load weights
+                #buggy - don't know why (works without by name for same amount of classes/regression
+                # if cfg.load_model_weights:
+                #     model = model.load_weights(cfg.load_model_weights)
+                #     print('loaded weights from', cfg.load_model_weights)
+                logger.debug('Final Model %s', type(model))
+                logger.debug(model.summary())
 
-                    model.compile(optimizer=optimizer, loss=loss, metrics=metrics_l)
-                    # Load weights
-                    #buggy - don't know why (works without by name for same amount of classes/regression
-                    if cfg.load_model_weights:
-                        model.load_weights(cfg.load_model_weights)
-                    if cfg.verbose:
-                        print('Final Model', type(model))
-                        print(model.summary())
-
-                if cfg.generator == 'ImageDataGenerator':
-                    datagen_train, datagen_val, datagen_test = IDG_creator(train_x, train_y, val_x, val_y, test_x, test_y,
-                                                                           augmentation_d, normalization_d)
-
-                ###Run Model
-                t_begin = time.time()
-                # to do: turn of cryptic warning (no influences though?) - not working w IDG - needs to be fixed!
-                # cf. https://stackoverflow.com/questions/65322700/tensorflow-keras-consider-either-turning-off-auto-sharding-or-switching-the-a
-                # options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
-                # options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.OFF
-                # use option autoencoder on ds
-                # options = tf.data.Options()
-                # options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
-                # train_ds = train_ds.with_options(options)
-                # val_ds = val_ds.with_options(options)
-                # test_ds = test_ds.with_options(options)
+            ###Run Model
+            t_begin = time.time()
+            logger.info('steps per epoch (train/val/test) %s %s %s',
+                        steps_per_epoch_train, steps_per_epoch_val, steps_per_epoch_test)
+            try:
                 history = model.fit(
-                    datagen_train.flow(train_x, train_y, batch_size=cfg.batch_size, shuffle=True),
-                    class_weight=class_weights,
-                    validation_data=datagen_val.flow(val_x, val_y,
-                                                     batch_size=cfg.batch_size, shuffle=True),
-                    # datagen.flow_from_dataframe(val_ds),
-                    epochs=cfg.epochs,
-                    callbacks=callbacks_l)
-                fit_time = time.time() - t_begin
-                if cfg.verbose:
-                    print('Time to fit model (s)', fit_time)
+                train_ds,
+                class_weight=class_weights,
+                validation_data=validation_ds,
+                epochs=epochs,
+                callbacks=callbacks_l,
+                steps_per_epoch=steps_per_epoch_train,
+                validation_steps=steps_per_epoch_val)
+            except KeyboardInterrupt:
+                history = False
+                pass
+            fit_time = time.time() - t_begin
+            if cfg.verbose:
+                logger.info('Time to fit model (s) %s', fit_time)
 
-                # Save history as pickle
+            # Save history as pickle
+            if history:
                 with open(os.path.join(run_path, 'trainHistory'), 'wb') as file_pi:
                     pickle.dump(history.history, file_pi)
-                # Save model
-                model.save(os.path.join(run_path, 'Model'))
+            # Save model
+            model.save(os.path.join(run_path, f'Model_{split_name}'), save_format='h5')
 
-                ###Visualize results
-                # show and/or save augmented images
-                if cfg.save_augmented_images:
-                    for datag, (x, y), add_name_img in zip([datagen_train, datagen_val, datagen_test],
-                                                           [(train_x, train_y), (val_x, val_y), (test_x, test_y)],
-                                                           ['train', 'val', 'test']):
-                        datagen = datag.flow(x, y, batch_size=1, save_to_dir=augmented_images_path,
-                                             save_prefix=add_name_img)
-                        for nr1, i in enumerate(datagen):
-                            if nr1 >= cfg.save_augmented_images:
-                                break
-                    if cfg.verbose:
-                        print('saved augmented images to', augmented_images_path)
+            ###Visualize results
+            if cfg.verbose and history:
+                logger.debug(history.history.keys())
+                # print(history.history)
 
-                if cfg.verbose:
-                    print(history.history.keys())
-                    print(history.history)
+            ###Augmented images
+            if cfg.save_augmented_images:
+                visualize_augmented_images(augmentation_d, train_ds, augmented_images_path)
+            #delete cache_p again
+            if os.path.exists(cache_p):
+                shutil.rmtree(cache_p)
 
-                # summarize statistics
+            # summarize statistics
+            additional_reports_d = {}
+            if history:
                 additional_reports_d = {'max epoch': len(history.history['val_loss']),
                                         'fit time': fit_time,
                                         'Time per epoch': fit_time / len(history.history['val_loss'])}
+            if history:
                 for metric in metrics_l:
-                    try:
-                        mn = metric.name
-                    except AttributeError:
-                        if metric == get_f1:
-                            mn = 'get_f1'
-                        elif metric == f1:
-                            mn = 'f1'
+                    mn = metric.name
                     if cfg.type_m == 'categorical':
                         additional_reports_d['max val ' + mn] = max(history.history['val_' + mn])
                         additional_reports_d['max val epoch ' + mn] = history.history['val_' + mn].index(max(
@@ -808,119 +1177,80 @@ def main():
                             history.history['val_' + mn]))
                         additional_reports_d['val ' + mn + ' at break'] = history.history['val_' + mn][-1]
                 # visualize history
-                visualizations.plot_history(history, run_path, cfg.type_m)
+                visualizations.plot_history(history, run_path + split_name, cfg.type_m)
 
-                ### Evaluation
-                # Evaluate the model via the test dataset
-                # (highest validation accuracy seems to always perform best)
-                if cfg.reload_best_weights_for_eval:
-                    model.load_weights(modelcheckpoint_path)
-                else:
-                    break
-                if cfg.verbose:
-                    print("Evaluate on test data")
-                results = model.evaluate(datagen_test.flow(test_x, test_y))
-                if cfg.verbose:
-                    print("test loss, test", metrics_l[0].name, ':', results)
-                for nr, r in enumerate(results):
-                    if nr == 0:
-                        additional_reports_d['test_loss'] = r
-                    additional_reports_d['test_' + metrics_l[nr - 1].name] = r
+            ###Evaluate model
+            # Evaluate the model via the test dataset
+            # (highest validation accuracy seems to always perform best)
+            if cfg.reload_best_weights_for_eval:
+                model.load_weights(modelcheckpoint_path)
 
-                # Create Confusion matrix for the test dataset
-                # Get np array of predicted labels and true labels for test dataset
-                test_true_list = []
-                test_pred = []
-                batches = 0
-                for j in datagen_test.flow(test_x, test_y, batch_size=int(cfg.batch_size)):
-                    batches += 1
-                    ynew = model.predict(j[0])
-                    if cfg.type_m == 'categorical':
-                        pred = np.argmax(ynew, axis=1)
-                        for ele in pred:
-                            test_pred.append(ele)
-                            test_gold = np.argmax(j[1], axis=1)
-                        for ele in test_gold:
-                            test_true_list.append(ele)
-                    else:
-                        test_pred.append(ynew)
-                        test_true_list.append(j[1])
-                    if batches >= len(test_x) / int(cfg.batch_size):
-                        break
+            if cfg.verbose:
+                logger.info("Evaluating on test data %s", test_ds)
+            test_history = model.evaluate(test_ds, steps=steps_per_epoch_test)
+            if cfg.verbose:
+                logger.info("test loss, test %s %s %s", metrics_l[0].name, ':', test_history)
+            for nr, r in enumerate(test_history):
+                if nr == 0:
+                    additional_reports_d['test_loss'] = r
+                additional_reports_d['test_' + metrics_l[nr - 1].name] = r
 
-                with open(run_path + '/pickle_prediction_true_1', 'wb') as f:
-                    pickle.dump([test_pred, test_true_list, label_mapping, add_params, run_path, labels_df, scaler], f)
+            additional_reports_d, sk_metrics_d, validation_f_df = \
+                evaluate_dataset(model, validation_ds, steps_per_epoch_val, run_path, label_mapping, add_params,
+                            scaler, label_d, split_name, validation_df, additional_reports_d,
+                            evaluate_mode='val')
+            additional_reports_d, sk_metrics_d, test_f_df = \
+                evaluate_dataset(model, test_ds, steps_per_epoch_test, run_path, label_mapping, add_params,
+                            scaler, label_d, split_name, test_df, additional_reports_d, label_col_in=label_name)
+            val_dfs_l.append(validation_f_df)
+            test_dfs_l.append(test_f_df)
+            #write run_summary
+            #cleaning
+            if not cfg.report_original_data:
+                for k, v in additional_reports_d.items():
+                    if 'Original Data' in k:
+                        del additional_reports_d[k]
+            report_d = {**add_rep,
+                        **additional_reports_d, **sk_metrics_d,
+                        **add_params}
+            report_df = pd.DataFrame(report_d, index=[0])
+            logger.debug('split report df\n%s', report_df)
+            if run_summary_splits_df is not False:
+                run_summary_splits_df = pd.concat([run_summary_splits_df, report_df], axis=0, join='outer')
+            else:
+                run_summary_splits_df = report_df
+            logger.debug('final split report\n%s', run_summary_splits_df)
+            run_summary_splits_df.to_csv(run_summary_splits_f, index=False)
 
-                if cfg.type_m == 'regression':
-                    test_prediction = pd.DataFrame({'Prediction': np.array(test_pred).reshape(-1),
-                                                    'Actual': np.array(test_true_list).reshape(-1)})
-                    test_prediction_l = [test_prediction]
-                    if cfg.label_normalization or cfg.label_transform or 'label normalization' in dic or 'transformation' in dic:
-                        print('hello here')
-                        test_prediction_l.append(copy.deepcopy(test_prediction))
-                        test_prediction = reverse_norm_transform(test_prediction,
-                                                                      cfg.label_normalization, cfg.label_transform,
-                                                                      scaler,
-                                                                      additional_params=add_params,
-                                                                      run_path=run_path, **dic)
-                    with open(run_path + '/pickle_prediction_true', 'wb') as f:
-                        pickle.dump([test_prediction, label_mapping, add_params, run_path], f)
+        ###Summary
+        sub_df = run_summary_splits_df[run_summary_splits_df['run_name'] == run_name]
+        mean_df = sub_df.mean(axis=0)
+        mean_df['split'] = 'mean'
+        mean_df['run_name'] = run_name
+        run_summary_splits_df = pd.concat([run_summary_splits_df, mean_df.to_frame().T], axis=0, join='outer')
+        logger.debug('final run summary splits df\n%s', run_summary_splits_df)
+        run_summary_splits_df.to_csv(run_summary_splits_f, index=False)
 
-                    for name, df in zip(['Original Data', 'Model Input'], test_prediction_l):
-                        visualizations.scatterplotRegression(df=df, run_path=run_path, file_name=name)
+        ###Make final evaluation of all models for validation and test predictions,
+        eval_d = evaluate_final_dataset(test_dfs_l, val_dfs_l, run_path, split_names, split_col=split_col)
 
-                        beta, alpha = np.polyfit(df.Actual, df.Prediction, 1)
-                        corr_value = df.corr(method="pearson")
-                        pearson_corr = corr_value["Prediction"][1]
-                        rmse = ((df['Prediction'] - df['Actual']) ** 2).mean() ** .5
-                        additional_reports_d[name + ': beta'] = beta
-                        additional_reports_d[name + ': alpha'] = alpha
-                        additional_reports_d[name + ': r2'] = pearson_corr
-                        additional_reports_d[name + ': RMSE'] = rmse
-                        print('Further stats for test data:' + name)
-                        print('RMSE:', rmse)
-                        print('r2:', pearson_corr)
-                        print('beta/alpha', beta, alpha)
-
-                sk_metrics_d = {}
-                if cfg.type_m == 'categorical':
-                    print(len(test_pred), len(test_true_list))
-                    print('testpred', test_pred)
-                    print('true', test_true_list)
-                    test_prediction = np.array(test_pred)
-                    test_true = np.array(test_true_list)
-                    add_params['f1 micro'] = f1_score(test_true, test_prediction, average='micro')
-
-                    # Confusion matrix
-                    cm_plot_labels = list(label_mapping.values())
-                    visualizations.plot_CM(test_true, test_prediction, cm_plot_labels, run_path +
-                                           'ConfusionMatrix')
-                    # create sklearn report (for f1 score and more)
-                    classification_d = classification_report(test_true, test_prediction, output_dict=True,
-                                                             target_names=cm_plot_labels)
-                    print('test classification', classification_d)
-                    print('f1', add_params['f1 micro'])
-                    # transform for one row
-                    for class_name, dic in classification_d.items():
-                        try:
-                            for metric_n, v in dic.items():
-                                sk_metrics_d[class_name + ': ' + metric_n] = v
-                        except AttributeError:
-                            sk_metrics_d[class_name] = dic
-
-                # write report (it's a bit messy right now!)
-                report_d = {**additional_reports_d, **sk_metrics_d, **{'run_name': run_name}, **labels_amount,
-                            **add_params, **dic}
-                filename = os.path.join(train_history_path, 'run_summary_' + label_name_in + '.csv')
-                file_exists = os.path.isfile(filename)
-                # append to file
-                with open(filename, 'a') as csv_file:
-                    writer = csv.DictWriter(csv_file, fieldnames=report_d.keys())
-                    if not file_exists:
-                        writer.writeheader()  # file doesn't exist yet, write a header
-                    for k, v in report_d.items():
-                        print(k, v)
-                    writer.writerow(report_d)
+        #create overall file
+        del add_rep['split']
+        report_final_d = {**add_rep, **eval_d, **add_params}
+        report_final_df = pd.DataFrame(report_final_d, index=[0])
+        logger.info('final x-val report df\n%s', report_final_df)
+        if run_summary_df is not False:
+            run_summary_df = pd.concat([run_summary_df, report_final_df], axis=0, join='outer')
+        else:
+            run_summary_df = report_final_df
+        if run_summary_overall_df is not False:
+            run_summary_overall_df = pd.concat([run_summary_overall_df, report_final_df], axis=0, join='outer')
+        else:
+            run_summary_overall_df = report_final_df
+        logger.info('final x-val run summary df\n%s', run_summary_df)
+        if not cfg.test_mode or cfg.test_mode == 'test run summary':
+            run_summary_df.to_csv(run_summary_f, index=False)
+            run_summary_overall_df.to_csv(run_summary_overall_f, index=False)
 
 
 if __name__ == "__main__":

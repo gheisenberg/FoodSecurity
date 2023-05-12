@@ -1,10 +1,36 @@
 from keras.layers.core import Dense, Dropout, Flatten
-from keras.layers import GlobalMaxPooling2D,GlobalAveragePooling2D
+from keras.layers import GlobalMaxPooling2D, GlobalAveragePooling2D, preprocessing
 import inspect
 import tensorflow as tf
 from keras.applications.vgg16 import VGG16
 import numpy as np
 
+#own imports
+import helper_utils as hu
+import config as cfg
+logger = hu.setup_logger(cfg.logging)
+
+
+def augmentation(**kwargs):
+    layer_l = []
+    for k, v in kwargs.items():
+        if k == 'horizontal_flip' and v == True:
+            layer_l.append(preprocessing.RandomFlip("horizontal"))
+        elif k == 'vertical_flip' and v == True:
+            layer_l.append(preprocessing.RandomFlip("vertical"))
+        elif k == 'zoom_range':
+            layer_l.append(preprocessing.RandomZoom(height_factor=(-v, v)))
+        elif k == 'rotation_range':
+            layer_l.append(preprocessing.RandomRotation((-v, v)))
+        # elif k == 'shear_range':
+
+        else:
+            raise NotImplementedError()
+    logger.debug('layersl', layer_l)
+    data_augmentation_layers = tf.keras.Sequential(layer_l)
+
+    logger.debug(data_augmentation_layers)
+    return data_augmentation_layers
 
 
 def add_classification_top_layer(model, out_classes, neurons_l, type_m='categorical', dropout=0.5, unfreeze_layers=0):
@@ -28,7 +54,8 @@ def add_classification_top_layer(model, out_classes, neurons_l, type_m='categori
         freeze_layers = len(model.layers) - unfrozen_layers
         for layer in model.layers[0:freeze_layers]:
             layer.trainable = False
-        print('Frozen layers', freeze_layers, 'unfrozen layers', unfrozen_layers, 'ges_layers', len(model.layers))
+        logger.debug('Frozen layers %s %s %s %s %s', freeze_layers, 'unfrozen layers', unfrozen_layers,
+                     'ges_layers', len(model.layers))
     #Add extra layers and always pass the output tensor to next layer
     x = model.output
     x = GlobalAveragePooling2D()(x)

@@ -6,9 +6,11 @@ from sklearn.metrics import classification_report, confusion_matrix
 import pandas as pd
 import seaborn as sns
 import pickle
-import water_w_regression as wwr
-import config as cfg
 
+import helper_utils as hu
+# import water_w_regression as wwr
+import config as cfg
+logger = hu.setup_logger(cfg.logging)
 
 def annot_max(x, y, type_m, ax=None):
     """
@@ -45,12 +47,13 @@ def plot_history(history, save_path, type_m, verbose=1):
         None
     """
     if verbose:
-        print('history2', history)
-        print(history.history.items())
+        logger.debug('history %s', history)
+        logger.debug(history.history.items())
     for key, metric in history.history.items():
         key_n = key.replace('_', ' ').title()
         if key[:3] != 'val':
             plt.figure()
+            plt.grid(which='both', axis='y')
             plt.plot(history.history[key])
             if key != 'lr':
                 plt.plot(history.history['val_' + key])
@@ -63,12 +66,35 @@ def plot_history(history, save_path, type_m, verbose=1):
                 plt.ylim(0, 2)
             elif key == 'accuracy':
                 plt.ylim(0, 1)
-            plt.grid(which='both', axis='y')
             #plt.show()
             #Save
-            plt.savefig(os.path.join(save_path, key))
+            plt.savefig(save_path + key)
             plt.close()
             #asd
+
+
+def standard_hist_from_df(df, path, file_n, title_in, bins_count='auto',
+                          minv=False, maxv=False, title_add='standard', xlabel='PC1', ylabel='count',
+                          xlim=3.5, xticks=1):
+    if minv or maxv:
+        df = df[(df > minv) & (df < maxv)]
+    if bins_count == 'auto':
+        bins_count = min(max(int(len(df) / 10), 7), 50)
+    df.hist(bins=bins_count)#, density=1)
+    if xlim:
+        plt.xlim(-xlim, xlim)
+    # if xticks:
+    #     plt.xticks(np.arange(int(df.min()), int(df.max()), step=xticks))
+    # write len, mean std as header to plot
+    title = title_in
+    if title_add == 'standard':
+        title += f"\nn={len(df)}, mean={df.mean():.2f}, std={df.std():.2f}, skew={df.skew():.2f}, kurt={df.kurtosis():.2f}"
+    plt.title(title)#, pad=20)
+    #label x axis
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.savefig(path + ' ' + file_n + ' ' + title_in + '.png')
+    plt.clf()
 
 
 def histogram(df, stat, title, path, file_n, limit_above=120):
@@ -97,24 +123,26 @@ def scatterplotRegression(df, run_path, file_name=''):
         BATCH_SIZE (int): number of training examples
         It does not return anything, but plots a regression plot and saves it
     """
-    beta, alpha = np.polyfit(df.Actual, df.Prediction, 1)
+    beta, alpha = np.polyfit(df.iloc[:,0], df.iloc[:,1], 1)
     corr_value = df.corr(method="pearson")
-    pearson_corr = corr_value["Prediction"][1]
-    print(pearson_corr)
+    pearson_corr = corr_value.iloc[1,0]
+    rmse = ((df.iloc[:, 0] - df.iloc[:, 1]) ** 2).mean() ** .5
     parameter_text = "\n".join(
         (
             r"$pearson\ corr=%.2f$" % (pearson_corr,),
             r"$slope: \beta=%.2f$" % (beta,),
             r"$intercept: \alpha=%.2f$" % (alpha,),
+            r"$rmse: \alpha=%.2f$" % (rmse,),
         )
     )
-    print(parameter_text)
+    logger.debug(file_name)
+    logger.debug(parameter_text)
     plt.figure()
     sns.set(rc={"figure.figsize": (15, 10)})
     sns.regplot(
-        data=df,
-        x="Actual",
-        y="Prediction",
+        data=None,
+        x=df.iloc[:,0],
+        y=df.iloc[:,1],
         x_ci="sd",
         scatter=True,
         line_kws={"color": "red"},
@@ -122,7 +150,7 @@ def scatterplotRegression(df, run_path, file_name=''):
     # add text annotation
     # set the textbox color to purple
     purple_rgb = (255.0 / 255.0, 2.0 / 255.0, 255.0 / 255.0)
-
+    plt.grid(True)
     plt.annotate(
         parameter_text,
         xy=(0.03, 0.8),
@@ -132,17 +160,105 @@ def scatterplotRegression(df, run_path, file_name=''):
         # color=purple_rgb,
         backgroundcolor="w",
     )
-    plt.grid(True)
     plt.title('Scatterplot', fontsize=14)
     plt.xlabel('Actual', fontsize=14)
     plt.ylabel('Prediction', fontsize=14)
     # finally save the chart to disk
     plt.savefig(run_path + 'Scatterplot_' + file_name + ".png", dpi=300, bbox_inches="tight")
-    plt.show()
+    # plt.show()
     plt.close()
-    # print a few regression statistics
-    print("Beta of ", df.Prediction.name, " =", round(beta, 4))
-    print("Alpha of ", df.Prediction.name, " =", round(alpha, 4))
+    return beta, alpha, pearson_corr, rmse
+
+
+def scatterplotRegressionMultiInputs(df, run_path, file_name='', multidataset_col=False,
+                                     error_metrics_on_test_data=False):
+    """Plots a Regressionplot with a text annotation containing additional information
+    Args:
+        df (pd.DataFrame): DataFrame consisting of the Actual and the Predicted Volatility Values
+        model_type (str): Name of the model
+        EPOCHS (int): the amount of epochs, the model was trained on
+        BATCH_SIZE (int): number of training examples
+        It does not return anything, but plots a regression plot and saves it
+    """
+    df_l = []
+    # colors = ['r', 'b', 'g', 'y', 'm', 'c']  # List of colors for each predicted column
+    colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan']
+    unq_l = []
+    if multidataset_col:
+        for unq in df[multidataset_col].unique():
+            df_l.append(df[df[multidataset_col] == unq])
+            unq_l.append(unq)
+    else:
+        df_l.append(df)
+        unq_l.append('all')
+
+    metrics_df = df
+    if error_metrics_on_test_data:
+        metrics_df == df[df[multidataset_col] == 'test']
+
+    beta, alpha = np.polyfit(metrics_df.iloc[:,0], metrics_df.iloc[:,1], 1)
+    corr_value = metrics_df.corr(method="pearson")
+    pearson_corr = corr_value.iloc[1,0]
+    rmse = ((metrics_df.iloc[:, 0] - metrics_df.iloc[:, 1]) ** 2).mean() ** 0.5
+    nrmse = rmse / metrics_df.iloc[:, 0].std()
+    parameter_text = "\n".join(
+        (
+            r"$pearson\ corr=%.2f$" % (pearson_corr,),
+            r"$\alpha=%.2f,\ beta=%.2f$" % (alpha, beta,),
+            r"$(n)rmse=%.2f\:\ (%.2f)$" % (rmse, nrmse),
+        )
+    )
+    logger.debug(file_name)
+    logger.debug(parameter_text)
+    if not multidataset_col:
+        sns.set(rc={"figure.figsize": (5, 4)})
+        plt.figure()
+        plt.annotate(
+            parameter_text,
+            xy=(0.03, 0.8),
+            xycoords="axes fraction",
+            ha="left",
+            fontsize=10,
+            # color=purple_rgb,
+            backgroundcolor="w",
+        )
+    else:
+        sns.set(rc={"figure.figsize": (15, 10)})
+        plt.figure()
+        plt.annotate(
+            parameter_text,
+            xy=(0.03, 0.8),
+            xycoords="axes fraction",
+            ha="left",
+            fontsize=14,
+            # color=purple_rgb,
+            backgroundcolor="w",
+        )
+
+    plt.grid(True)
+
+    for i, df in enumerate(df_l):
+        sns.regplot(
+            data=df,
+            x=df.columns[0],
+            y=df.columns[1],
+            x_ci="sd",
+            scatter=True,
+            color=colors[i],
+            label=unq_l[i],
+            # line_kws={"color": colors[i]},  # Use a different color for each predicted column
+        )
+
+    plt.title('Scatterplot', fontsize=14)
+    plt.xlabel('Actual', fontsize=14)
+    plt.ylabel('Prediction', fontsize=14)
+    if multidataset_col:
+        plt.legend(loc='lower right')
+    # finally save the chart to disk
+    plt.savefig(run_path + 'Scatterplot: ' + file_name + ".png", dpi=300, bbox_inches="tight")
+    # plt.show()
+    plt.close('all')
+    return beta, alpha, pearson_corr, rmse, nrmse
 
 
 def plot_CM(label_true, prediction_true, classes, save_path, mode='both', title='Confusion matrix', cmap=plt.cm.Blues):
@@ -168,7 +284,7 @@ def plot_CM(label_true, prediction_true, classes, save_path, mode='both', title=
     else:
         cm_l = ['quantities']
     for i in cm_l:
-        print('Creating CM', i)
+        logger.debug('Creating CM', i)
         plt.figure()
         # plt.figure(figsize=(7, 4))
         cm = confusion_matrix(y_true=label_true, y_pred=prediction_true)
@@ -191,12 +307,12 @@ def plot_CM(label_true, prediction_true, classes, save_path, mode='both', title=
         if i == 'normalized':
             cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
             cm = np.around(cm, decimals=2)
-            print("Normalized confusion matrix")
+            logger.debug("Normalized confusion matrix")
         else:
             thresh = thresh * len(label_true)
-            print('Confusion matrix, without normalization')
+            logger.debug('Confusion matrix, without normalization')
 
-        print('threshold for CM', thresh)
+        logger.debug('threshold for CM', thresh)
         for k, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
             plt.text(j, k, cm[k, j],
                 horizontalalignment="center", size='large',
@@ -232,16 +348,16 @@ def plot_CM_sns(label_true, prediction_true, classes, save_path, mode='normalize
     else:
         cm_l = ['quantities']
     for i in cm_l:
-        print('Creating CM', i)
+        logger.debug('Creating CM', i)
         plt.figure()
         cm = confusion_matrix(y_true=label_true, y_pred=prediction_true)
 
         if i == 'normalized':
             cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
             cm = np.around(cm, decimals=2)
-            print("Normalized confusion matrix")
+            logger.debug("Normalized confusion matrix")
         else:
-            print('Confusion matrix, without normalization')
+            logger.debug('Confusion matrix, without normalization')
 
         # df_cm = pd.DataFrame(cm, index=classes,
         #                      columns=classes)
@@ -302,83 +418,23 @@ def zero_one_normalization(data):
 
 
 def main():
-    # run_path = r'/mnt/datadisk/data/Projects/water/trainHistory_aug/source_of_drinking_water_(categorized_by_type)__max/vgg19_wimagenet_unfl100_d0_lr0.0001_momentum0.9_optimizerSGD_horizontal_flip_featurewise_8/'
-    # with open(run_path + '/pickle_cm', 'rb') as f:
-    #     [test_true, test_prediction, label_mapping] = pickle.load(f)
-    #
-    # # Confusion matrix
-    # cm_plot_labels = list(label_mapping.values())
-    # plot_CM(test_true, test_prediction, cm_plot_labels, run_path +
-    #                        'ConfusionMatrix')
-    # plot_CM_sns(test_true, test_prediction, cm_plot_labels, run_path +
-    #                           'ConfusionMatrix')
-    # run_path = '/mnt/datadisk/data/Projects/water/trainHistory_aug_testing//time_to_get_to_water_source_+_penalty_capped/vgg19_wimagenet_unfl100_d0_lr0.0001_momentum0.9_optimizerSGD_horizontal_flip_featurewise_3/'
-    # with open(run_path + 'dfs_in', 'rb') as f:
-    #     [labels_df, train_df, validation_df, test_df] = pickle.load(f)
-    # label_name = 'time to get to water source + penalty (capped)'
-    # for df_n, df in zip(['All', 'Train', 'Validation', 'Test'],
-    #                     [labels_df, train_df, validation_df, test_df]):
-    #     for col in df.columns:
-    #         if col in [label_name, 'transformed', 'normalized', 'label']:
-    #             add_n = col
-    #             if col == label_name:
-    #                 add_n = 'Raw Data'
-    #             elif col == 'label':
-    #                 add_n = 'Input'
-    #             title = label_name.replace('_', ' ').title() + ' ' + \
-    #                     '(n=' + str(len(df)) + ')'
-    #             histogram(df[col], 'probability', title, run_path,
-    #                                      label_name + df_n + ' ' + add_n)
-    # run_path = '/mnt/datadisk/data/Projects/water/trainHistory_aug_testing//time_to_get_to_water_source_+_penalty_capped/vgg19_wimagenet_unfl100_d0_lr0.0001_momentum0.9_optimizerSGD_horizontal_flip_featurewise_17/'
-    # with open(run_path + '/pickle_prediction_true_1', 'rb') as f:
-    #     [test_pred, test_true_list, label_mapping, add_params, run_path, labels_df] = pickle.load(f)
-    # print('test pred', test_pred)
-    # print('test true', test_true_list)
-    # print(add_params)
-    # test_prediction = pd.DataFrame({'Prediction': np.array(test_pred).reshape(-1),
-    #                                 'Actual': np.array(test_true_list).reshape(-1)})
-    # test_prediction_before_detransform = copy.deepcopy(test_prediction)
-    # print('test pred df', test_prediction)
-    # with open(run_path + '/pickle_prediction_true_norm', 'wb') as f:
-    #     pickle.dump([test_prediction, label_mapping, add_params, run_path], f)
-    # if cfg.label_transform or cfg.label_normalization:
-    #     test_prediction = wwr.reverse_norm_transform(test_prediction,
-    #                                              cfg.label_normalization, cfg.label_transform,
-    #                                              additional_params=add_params, run_path=run_path)
-    # print('test pred', test_prediction)
-    # with open(run_path + '/pickle_prediction_true', 'wb') as f:
-    #     pickle.dump([test_prediction, label_mapping, add_params, run_path], f)
-    #
-    # for df_n, df in zip(['Test prediction', 'Test True'],
-    #                     [test_prediction['Prediction'], test_prediction['Actual']]):
-    #     title = 'asf'.replace('_', ' ').title() + ' ' + df_n + ' ' + \
-    #             '(n=' + str(len(df)) + ')'
-    #     histogram(df, 'probability', title, run_path, title)
-    #
-    # print(test_prediction)
-    # for name, df in zip(['normalized', 'denormalized'], [test_prediction_before_detransform, test_prediction]):
-    #     scatterplotRegression(df=df, run_path=run_path, file_name=name)
-    # run_path = '/mnt/datadisk/data/Projects/water/trainHistory_aug_cat//source_of_drinking_water_categorized_piped__max/vgg19_wimagenet_unfl100_d0_lr0.0001_momentum0.9_optimizerSGD_horizontal_flip_featurewise_3/'
-    # with open(run_path + '/pickle_prediction_true_1', 'rb') as f:
-    #     [test_pred, test_true_list, label_mapping, add_params, run_path, labels_df] = pickle.load(f)
-    # print(len(test_pred), len(test_true_list))
-    # print('testpred', test_pred)
-    # print('true', test_true_list)
-    # test_prediction = np.array(test_pred)
-    # test_true = np.array(test_true_list)
-    # # add_params['f1 micro'] = f1_score(test_true, test_prediction, average='micro')
-    #
-    # # Confusion matrix
-    # cm_plot_labels = list(label_mapping.values())
-    # plot_CM(test_true, test_prediction, cm_plot_labels, run_path +
-    #                        'ConfusionMatrix')
-    # run_path = '/mnt/datadisk/data/Projects/water/trainHistory_final_pca_dist/PCA_w_weighting_urban0/76r2_65b_vgg19_wimagenet_unfl100_d0_lr0.0001_momentum0.9_optimizerSGD_horizontal_flip_vertical_flip_featurewise_1/'
-    run_path = '/mnt/datadisk/data/Projects/water/trainHistory_distance_normed_transformed_dropped/time_to_get_to_water_source_refurbished/56r2_vgg19_wimagenet_unfl100_d0_lr0.0001_momentum0.9_optimizerSGD_shear_0.2zoom_0.2horizontal_flip_featurewise_1/'
+    run_path = '/mnt/datadisk/data/Projects/water/trainH_XV/split__out_of_country_all_w_TIF/PCA_w_location_weighting_all2/996x996_c432_fillmean_m2.5_rlocal_channel_mean_clipvoutlier_normZ_f31213vgg19_wimagenet_unfl100_d0_lr0.0001_momentum0.9_optimizerSGD__m_vgg19_2/'
 
-    with open(run_path + '/pickle_prediction_true', 'rb') as f:
-        [test_prediction, label_mapping, add_params, run_path2] = pickle.load(f)
-    print(test_prediction)
-    scatterplotRegression(df=test_prediction, run_path=run_path, file_name='Original Data')
+    names = []
+    val_dfs = []
+    test_dfs = []
+
+    for file in hu.files_in_folder(run_path, sort=True):
+        print(file)
+        if 'val_df_' in file:
+            val_dfs.append(pd.read_csv(file))
+            names.append(file[-11:-4])
+        elif 'test_df_' in file:
+            test_dfs.append(pd.read_csv(file))
+    print(names)
+    print('val\n', val_dfs)
+    print('test\n', test_dfs)
+    # wwr.evaluate_final_dataset(test_dfs, val_dfs, run_path, names, cfg.split)
 
 
 if __name__ == "__main__":

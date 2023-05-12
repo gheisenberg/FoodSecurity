@@ -25,7 +25,8 @@ prj_folder = '/mnt/datadisk/data/Projects/water/'
 # train history will be saved in a subfolder of the project path (base_folder + /projects/water/)
 # assign a name according to your group, to separate your results from all others! Create this folder manually!
 trainHistory_subname = 'trainHistory_aug_cat/'
-labels_f = os.path.join(prj_folder, 'water_labels_urban.csv')
+labels_f = prj_folder + '/inputs/water_labels_urban.csv'
+img_path = '/mnt/datadisk/data/Sentinel2/raw/'
 
 ########################################################################################################################
 #                                            Run Name
@@ -52,6 +53,8 @@ label_name = ['distance categories cluster', 'distance categories cluster 2']#as
 # label_name = ['weighting (location)', 'time to get to water source + penalty',
 #               'time to get to water source (refurbished) + penalty', 'time to get to water source + penalty (capped)']
 # label_name = ['source of drinking water (weights)']
+#removes all label data before 2012
+label_min_year = 2012
 # [Minimum, maximum values] for clipping above and below those pixel values
 clipping_values = [0, 3000]
 # Channels (define channels which should be used, if all should be used provide an empty list = [])

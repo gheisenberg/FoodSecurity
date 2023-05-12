@@ -2,9 +2,14 @@ import os
 from itertools import chain, combinations
 import pickle
 from os import walk
+import logging
+import sys
+import colorlog
+
 
 #own imports
-import nn_utils as nnu
+#import nn_utils as nnu
+import config as cfg
 
 
 def paths_from_base_path(base_path, folders_d, add_d=False, verbose=1):
@@ -49,7 +54,7 @@ def paths_from_base_path(base_path, folders_d, add_d=False, verbose=1):
         #append the result to dict to reload it when necessary
         folders_d[name].append(path)
     if verbose >= 1:
-        print('Loaded paths', paths_l)
+        logger.debug('Created and loaded paths %s', paths_l)
     return paths_l
 
 
@@ -70,12 +75,12 @@ def load_class_weights(class_weights_f, labels_df, train_path, prj_path, load_da
     if os.path.exists(class_weights_f) and load_data:
         class_weights = pickle.load(open(class_weights_f, "rb"))
         if verbose >= 1:
-            print('Loaded class weights from file', class_weights)
+            logger.debug('Loaded class weights from file', class_weights)
     else:
         # Create class weights and save them to file
         class_weights = nnu.create_class_weights_dict(train_path, labels_df)
         if verbose >= 1:
-            print('Created class weights', class_weights)
+            logger.debug('Created class weights', class_weights)
         # Save class_weights as pickle
         with open(os.path.join(prj_path, 'class_weights'), 'wb') as file_pi:
             pickle.dump(class_weights, file_pi)
@@ -94,13 +99,54 @@ def powerset(iterable):
     s = list(iterable)
     return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
-def files_in_folder(path, return_pathes=True):
-    pathes = []
+
+def files_in_folder(path, return_pathes=True, return_folders=False, sort=False):
     for (dirpath, dirnames, filenames) in walk(path):
-        if not return_pathes:
-            return filenames
-        else:
-            for f in filenames:
-                pathes.append(dirpath + f)
+        if cfg.verbose:
+            logger.debug('%s\n %s\n %s',dirpath, dirnames, filenames)
+        f = filenames
+        if return_folders:
+            f = [d + '/' for d in dirnames]
+        if return_pathes:
+            f = [dirpath + fi for fi in f]
         break
-    return pathes
+    if sort:
+        f = sorted(f)
+    return f
+
+
+def setup_logger(logging_level):
+    logger = logging.getLogger('my_app')
+    logger.setLevel(logging.DEBUG)
+
+    # Remove any existing handlers from the logger
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+
+    # Create a console handler for logging to stdout
+    console_handler = logging.StreamHandler(sys.stdout)
+    if logging_level == 'debug':
+        logger.setLevel(logging.DEBUG)  # Set the logger level
+        console_handler.setLevel(logging.DEBUG)
+    elif logging_level == 'info':
+        logger.setLevel(logging.INFO)  # Set the logger level
+        console_handler.setLevel(logging.INFO)
+    elif logging_level == 'warning':
+        logger.setLevel(logging.WARNING)  # Set the logger level
+        console_handler.setLevel(logging.WARNING)
+    else:
+        logger.setLevel(logging.ERROR)  # Set the logger level
+        console_handler.setLevel(logging.ERROR)
+
+    # Set up the color formatter
+    color_formatter = colorlog.ColoredFormatter(
+        fmt='%(log_color)s %(levelname)s: %(message)s',
+        datefmt=None,
+        reset=True,
+    )
+
+    console_handler.setFormatter(color_formatter)
+    logger.addHandler(console_handler)
+
+    return logger
+logger = setup_logger(cfg.logging)

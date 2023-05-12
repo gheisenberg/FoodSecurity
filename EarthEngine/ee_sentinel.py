@@ -10,6 +10,8 @@ import time
 from csv import DictReader
 import json
 import multiprocessing as mp
+import pandas as pd
+import numpy as np
 
 import ee
 
@@ -41,21 +43,34 @@ from pydrive.files import ApiRequestError
 
 ###Options###
 ##Paths
-label_csv = '/mnt/datadisk/data/Projects/water/water_labels.csv'
-img_p = '/mnt/datadisk/data/Sentinel2/raw/'
+label_csv = '/mnt/datadisk/data/Projects/water/inputs/water_labels.csv'
+# label_csv = '/mnt/datadisk/data/Projects/water/inputs/Moz_Grid_Points_10km.csv'
+img_p = '/mnt/datadisk/data/Sentinel2/moz/'
+# img_p = '/mnt/datadisk/data/Sentinel2/moz_grid/'
+#used to debug locally: set to False for actual DL
+testing = False
 ##Parameter
-#these should be identical and probably 5000 (yields 10x10km tiles)
-urban_radius = 5000  # meter
-rural_radius = 5000  # meter
+#these should be identical and probably 5010 (yields 10x10km tiles)
+#note: these should be a little bit bigger than the radius you actually want since GEE sometimes cuts it a few pixels
+#early
+urban_radius = 5010  # meter
+rural_radius = 5010  # meter
 #20 is suggested
 MAX_CLOUD_PROBABILITY = 20  # %
 #the minimum year of the questionnaire to download files
 min_year = 2012
 #Google stuff
 gdrive_dir_s2 = '1P4FpvICI0S9vRs8mNvHxzqooK7zPGGnP'
+#make sure that you have enough space on disk (parallel-dls*img_size)
 parallel_dls = 150
 #wait for 6 hours to complete all tasks and download them
 final_waiting_time = 6
+###Special Settings
+##Downloads S2 images for specified country and year at places where there have been surveys
+#use country name or False
+download_country = 'Mozambique'
+#specify year (only active if download country is DHS country code)
+download_year = 2022
 # Paths
 # Path to Label Data
 # csv_dir = csv_path
@@ -106,11 +121,11 @@ def maskClouds(img:ee.Image, MAX_CLOUD_PROBABILITY:int):
     return img.updateMask(isNotCloud)
 
 
-def get_image(cluster:object, urban_radius:int, rural_radius:int, country_code:str, MAX_CLOUD_PROBABILITY:int, drive):
+def get_image(cluster:pd.Series, urban_radius:int, rural_radius:int, country_code:str, MAX_CLOUD_PROBABILITY:int, drive):
     '''Extract Information about cluster to get Sentinel-2 image for corresponding year and coordinates.
     
     Args:
-        cluster(DictReader object):    Information about the Cluster (cluster number, coordinates, survey name, etc.)
+        cluster(pd.Series):    Information about the Cluster (cluster number, coordinates, survey name, etc.)
         survey_name(str):           Name of the survey (COUNTRY_YEAR)
         urban_radius(int):          Radius around coordinates for Urban regions in meter
         rural_radius(int):          Radius around coordinates for Rural regions in meter
@@ -129,18 +144,16 @@ def get_image(cluster:object, urban_radius:int, rural_radius:int, country_code:s
     # Get images collections
     s2Sr = ee.ImageCollection('COPERNICUS/S2')
     s2Clouds = ee.ImageCollection('COPERNICUS/S2_CLOUD_PROBABILITY')
-
     # Get time span
     year = int(float(cluster["DHSYEAR"]))
     if int(year) < 2016:
         START_DATE = ee.Date('2015-06-01')
         END_DATE = ee.Date('2016-07-01')
-        date_range = '20150601-20160701'
+        # date_range = '20150601-20160701'
     else:
         START_DATE = ee.Date(str(int(year)) + '-01-01')
         END_DATE = ee.Date(str(int(year)) + '-12-31')
-        date_range = str(year) + '0101-' + str(year) + '1231'
-
+        # date_range = str(year) + '0101-' + str(year) + '1231'
     # Point of interest (longitude, latidude)
     lat_float = float(cluster["LATNUM"])
     lon_float = float(cluster["LONGNUM"])
@@ -194,45 +207,7 @@ def get_image(cluster:object, urban_radius:int, rural_radius:int, country_code:s
         time.sleep(60*5)  # set sleep timer for 5 sec if task is still active
     # print('created', filename, (time.time() - t1)/60)
     print('\n --------\ncreated', status['description'], status['id'], status['state'], (time.time() - t1)/60, 'mins')
-    download_local(img_p, drive)
     return loc
-
-
-def get_survey_images(file_dir:str, survey_name:str, urban_radius:int, rural_radius:int, MAX_CLOUD_PROBABILITY:int):
-    '''Get Sentinel-2 image for each Cluster and download from GoogleDrive.
-    
-    Args:
-        file_dir(str):              Path to DHS survey csv file
-        survey_name(str):           Name of the survey (COUNTRY_YEAR)
-        urban_radius(int):          Radius around coordinates for Urban regions in meter
-        rural_radius(int):          Radius around coordinates for Rural regions in meter
-        MAX_CLOUD_PROBABILITY(int): %
-    '''
-    with open(file_dir, 'r') as read_obj:
-        # pass the file object to DictReader() to get the DictReader object
-        dict_reader = DictReader(read_obj)
-        # get a list of dictionaries from dct_reader
-        clusters = list(dict_reader)
-        # if clusters[0]['COUNTRY'].replace('_', ' ') == 'Democratic Republic of Congo':
-        #     country_code = 'COD'
-        # elif clusters[0]['COUNTRY'].replace('_', ' ') == 'Cote d\'Ivoire':
-        #     country_code = 'CIV'
-        # elif clusters[0]['COUNTRY'].replace('_', ' ') == 'Burkina Faso':
-        #     country_code = 'BFA'
-        # elif clusters[0]['COUNTRY'].replace('_', ' ') == 'Sierra Leone':
-        #     country_code = 'SLE'
-        # elif clusters[0]['COUNTRY'].replace('_', ' ') == 'Tanzania':
-        #     country_code = 'TJK'
-        #
-        # else:
-        #     country_code = country_code_map[clusters[0]['COUNTRY'].replace('_', ' ')]
-        country_code = None
-        for cluster in clusters:
-            loc = get_image(cluster, urban_radius, rural_radius, country_code, MAX_CLOUD_PROBABILITY)
-            #download files to local machine
-            if float(cluster["DHSCLUST"]) % 2 == 0:
-                download_local(os.path.join(img_p, survey_name))
-        download_local(os.path.join(img_p, survey_name))
 
 
 def download_local(survey_dir:str, drive):
@@ -272,117 +247,91 @@ def download_local(survey_dir:str, drive):
         print('file (probably) has already been downloaded!')
         pass
 
-# Main functions for getting the sentinel images; here: only the directory for each survey is created
-def sentinel_img_survey(img_p:str, csv_dir:str, sentinel_done:str, urban_radius:int,
-                        rural_radius:int, MAX_CLOUD_PROBABILITY:int):
-    '''Iterate over survey csvs and get Sentine-2 images for each cluster.
-    
-    Args:
-        img_p(str):               Path to directory where Sentinel-2 images are stored
-        csv_dir(str):               Path to directory where DHS csv files are stored
-        sentinel_done(str):         Filepath for file to document for which surveys were are already completed
-        urban_radius(int):          Radius around coordinates for Urban rgions in meter
-        rural_radius(int):          Radius around coordinates for Rural regions in meter
-        MAX_CLOUD_PROBABILITY(int): %
-    '''
-    if not os.path.exists(img_p):
-        os.makedirs(img_p)
-
-    if not os.path.isfile(sentinel_done):
-        open(sentinel_done, 'a').close()
-
-    csv_directory = os.listdir(csv_dir)
-    img_directory = os.listdir(img_p)
-
-    for file in csv_directory:
-        if file.endswith('.csv'):
-            filename = file[:file.rfind('.')]
-            print(filename)
-            # Check if survey is already done we skip this survey (sentinel_done file has to be edited manually)
-            with open(sentinel_done) as f:
-                if not filename in f.read():
-                    survey_name = file[:file.rfind('.')]
-                    survey_dir = os.path.join(img_p, survey_name)
-                    if not os.path.exists(survey_dir):
-                        os.makedirs(survey_dir)
-                    file_dir = os.path.join(csv_dir, file)
-                    get_survey_images(file_dir, survey_name, urban_radius, rural_radius, MAX_CLOUD_PROBABILITY)
-                    # Add survey to txt file which stores all surveys which are done to avoid downloading them again if you reload the program
-                    file1 = open(sentinel_done, "a")  # append mode
-                    file1.write(file + "\n")
-                    file1.close()
-                    print(file, 'finished')
-
-
-
-# sentinel_img_survey(img_p, csv_dir, sentinel_done, urban_radius, rural_radius, MAX_CLOUD_PROBABILITY)
 
 def main(drive):
-    download_local(img_p, drive)
+    if not testing:
+        download_local(img_p, drive)
     #list of available files
     for (dirrpath, dirrnames, filenames) in os.walk(img_p):
-        print('available images', dirrpath, dirrnames, len(filenames))
+        print('available images', dirrpath, len(filenames))
         #only these folder are needed
-    # print('d', filenames)
-    with open(label_csv, 'r') as read_obj:
-        # pass the file object to DictReader() to get the DictReader object
-        dict_reader = DictReader(read_obj)
-        # get a list of dictionaries from dct_reader
-        clusters = list(dict_reader)
-        # if clusters[0]['COUNTRY'].replace('_', ' ') == 'Democratic Republic of Congo':
-        #     country_code = 'COD'
-        # elif clusters[0]['COUNTRY'].replace('_', ' ') == 'Cote d\'Ivoire':
-        #     country_code = 'CIV'
-        # elif clusters[0]['COUNTRY'].replace('_', ' ') == 'Burkina Faso':
 
-        #     country_code = 'BFA'
-        # elif clusters[0]['COUNTRY'].replace('_', ' ') == 'Sierra Leone':
-        #     country_code = 'SLE'
-        # elif clusters[0]['COUNTRY'].replace('_', ' ') == 'Tanzania':
-        #     country_code = 'TJK'
-        #
-        # else:
-        #     country_code = country_code_map[clusters[0]['COUNTRY'].replace('_', ' ')]
-    country_code = None
-    final_clusters = []
-    for cluster in clusters:
-        # print('hi3')
-        # print(cluster)
-        if not cluster['TIF_name'] in filenames and int(float(cluster['DHSYEAR'])) >= min_year:
-            final_clusters.append(cluster)
-
+    df = pd.read_csv(label_csv)
+    print('DF in\n', df)
+    print(df.columns)
+    #if GRID.csv manipulate and save
+    if not "country" in df.columns:
+        df['country'] = download_country
+        df['DHSYEAR'] = download_year
+        df['TIF_name'] = download_country + '_GRID_' + str(download_year) + '_' + \
+                         df['id'].astype(str).str.zfill(8) + '.tif'
+        #this is a dummy for legacy - does not mean it is urban!!!
+        df['URBAN_RURA'] = 0
+        df.to_csv(label_csv[:-4] + '_GRID_DL.csv')
+    #manipulating df to represent desired country to download specified year
+    elif download_country:
+        df = df[df['country'] == download_country]
+        if download_year:
+            df['DHSYEAR'] = download_year
+            df['TIF_name'] = df['TIF_name'].str[:-4] + '_' + str(download_year) + '.tif'
+    # setting min year
+    elif min_year:
+        print('Using minimal year of', min_year)
+        df = df[df['DHSYEAR'] >= min_year]
+    print('\nDF after manipulating\n', df)
+    #make sure it didnt get downloaded yet
+    df['TIF_name'] = df['TIF_name'].apply(lambda x: x if x not in filenames else np.NaN)
+    df = df[df['TIF_name'].notna()]
+    # print(df["DHSYEAR"])
+    # y = df.iloc[0]["DHSYEAR"]
+    # print(y, type(y), int(float(y)))
+    # input()
     pool = mp.Pool()
-    len_clusters = len(final_clusters)
+    len_clusters = len(df)
     t1 = time.time()
     t2 = time.time()
-    for i, cluster in enumerate(final_clusters):
-        # print('\n')
-        res = pool.apply_async(get_image, args=(cluster, urban_radius, rural_radius, False, MAX_CLOUD_PROBABILITY,
-                                                drive))
-        if i and (not i % parallel_dls or not i % len_clusters):
-            print(f'\rStarting {i} / {len_clusters}')
-            #wait for one process to finish (it is random which gets started first!)
-            #so not all downloads are started simultaneously (won't work!)
-            #since it's random, there may be lots of processes still running, while new ones are started
-            #you cannot see the old processes anymore, so it might take a long time until any of the new processes gets
-            #actually started on gee (depends on parallel_dls)
-            res.wait()
-            # loc = res.get()
-            # print('asd', loc)
-            download_local(img_p, drive)
-            rt30 = (time.time() - t2) / 3600
-            t2 = time.time()
-            rt = (t2 - t1)/3600
-            eta = rt/i * (len_clusters - i)# + 1
-            print(f'\rRunning time: {rt}h, running time for these {parallel_dls} tiles: {rt30}h, ETA: {eta}h or {eta/24} days')
+    print('\nDownloading', len_clusters, 'clusters')
+    print('\nFinal DF \n', df)
+    print('\nFile names and years\n', df[["TIF_name", "DHSYEAR"]])
+    if len_clusters > 0:
+        for i, (ind, cluster) in enumerate(df.iterrows()):
+            # print(i, cluster, type(cluster))
+            # print('\n')
+            #debugging!
+            # get_image(cluster, urban_radius, rural_radius, False, MAX_CLOUD_PROBABILITY,
+            #                                         drive)
+            #does not return error messages... Be careful!
+            res = pool.apply_async(get_image, args=(cluster, urban_radius, rural_radius, False, MAX_CLOUD_PROBABILITY,
+                                                    drive))
+            if i != 0 and not i % parallel_dls or not (i + 1) % len_clusters:
+                print(f'\rStarting {i+1} / {len_clusters}')
+                #wait for one process to finish (it is random which gets started first!)
+                #so not all downloads are started simultaneously (won't work!)
+                #since it's random, there may be lots of processes still running, while new ones are started
+                #you cannot see the old processes anymore, so it might take a long time until any of the new processes gets
+                #actually started on gee (depends on parallel_dls)
+                res.wait()
+                # loc = res.get()
+                # print('asd', loc)
+                download_local(img_p, drive)
+                rt30 = (time.time() - t2) / 3600
+                t2 = time.time()
+                rt = (t2 - t1)/3600
+                try:
+                    eta = rt/i * (len_clusters - i)# + 1
+                except ZeroDivisionError:
+                    eta = 'NaN'
+                print(f'\rRunning time: {rt}h, running time for these {parallel_dls} tiles: {rt30}h, ETA: {eta}h or {eta/24} days')
 
-    #wait 60 mins to ensure everything is downloaded - there are for sure more elegant ways to do this
-    print(f'\rRunning time: {rt}h, ETA: {final_waiting_time}h ensuring everything is downloaded')
-    time.sleep(60*60*final_waiting_time)
-    print('downloading a last time')
-    download_local(img_p, drive)
-    print('finished')
-    pool.close()
+        #wait 60 mins to ensure everything is downloaded - there are for sure more elegant ways to do this
+        print(f'\rRunning time: {rt}h, ETA: {final_waiting_time}h ensuring everything is downloaded')
+        time.sleep(60*60*final_waiting_time)
+        print('downloading a last time')
+        download_local(img_p, drive)
+        print('finished')
+        pool.close()
+    else:
+        print('Nothing left to download')
     # pool.join()
     # loc = get_image(cluster, urban_radius, rural_radius, False, MAX_CLOUD_PROBABILITY)
     # download files to local machine
@@ -404,15 +353,18 @@ if __name__ == "__main__":
     #     project=project,
     #     opt_url='https://earthengine-highvolume.googleapis.com'
     # )
-    ee.Initialize(
-        opt_url='https://earthengine-highvolume.googleapis.com')
+    if not testing:
+        ee.Initialize(
+            opt_url='https://earthengine-highvolume.googleapis.com')
 
-    # ee.Initialize()
-    print('initialized2')
-    gauth = GoogleAuth()
-    # only works on remote machine
-    gauth.LocalWebserverAuth()
-    drive = GoogleDrive(gauth)
+        # ee.Initialize()
+        print('initialized2')
+        gauth = GoogleAuth()
+        # only works on remote machine
+        gauth.LocalWebserverAuth()
+        drive = GoogleDrive(gauth)
+    else:
+        drive = False
     #old stuff
     # gauth.LoadCredentialsFile("mycreds.txt")
     # drive = GoogleDrive(gauth)

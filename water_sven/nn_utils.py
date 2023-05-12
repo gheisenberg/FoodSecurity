@@ -1,11 +1,15 @@
 import os
+
+import pandas as pd
 from sklearn.utils import class_weight
 import time
 import rasterio
 import numpy as np
 import random
 import warnings
-
+import helper_utils as hu
+import config as cfg
+logger = hu.setup_logger(cfg.logging)
 
 #Create class weights for the prediction model as our data set is imbalanced (acoount higher weight to classes with
 #less samples)
@@ -64,9 +68,9 @@ def generator_old(x_path, labels, batch_size, input_height, input_width, clippin
         11. yields batch"""
     x_list = os.listdir(x_path)
     x_list = [x for x in x_list if x.endswith('.tif')]
-    # print(x_list)
+    # logger.debug(x_list)
     # for x in x_list:
-    #     print(x)
+    #     logger.debug(x)
     assert all([i.endswith('.tif') for i in x_list])
     #Shuffle elements in list, so that batches consists of images of different surveys
     random.shuffle(x_list)
@@ -103,10 +107,10 @@ def generator_old(x_path, labels, batch_size, input_height, input_width, clippin
         #     assert not np.any(np.isnan(array)), "Normalize"
         # Add to batch
         batch_x[batch_ele] = array
-        #print('Array', type(array), '\n', array)
+        #logger.debug('Array', type(array), '\n', array)
         #array = cv2.resize(array, (224,224))     # resize image to match model's expected sizing
         #array = array.reshape(1,224,224,3) # return the image with shaping that TF wants.
-        # print('Array', type(array), '\n', array)
+        # logger.debug('Array', type(array), '\n', array)
         # sys.exit()
 
         #Get corresponding label y
@@ -133,6 +137,44 @@ def generator_old(x_path, labels, batch_size, input_height, input_width, clippin
             batch_ele += 1
 
 
+def test_imgs(labels_df, channels):
+    nr = 0
+    miss = 0
+    min_shape = 100000000
+    for id, row in labels_df.iterrows():
+        # Get training sample x
+        img_path = row['path']
+        #logger.debug(img_path)
+        if not id % 100:
+            logger.debug(id)
+        if not img_path or type(img_path) is not str and np.isnan(img_path):
+            if row['DHSYEAR'] >= 2012:
+                warnings.warn(f"\n{row[['DHSID', 'GEID', 'LATNUM', 'LONGNUM', 'PCA w_location_weighting all', 'DHSYEAR', 'path']]} has "
+                              f"no path {img_path} {miss}")
+                miss += 1
+        else:
+            with rasterio.open(img_path) as img:
+                if len(channels) == 0:
+                    array = img.read().astype("float32")
+                    # what does it return? (width, height, channels=13?) for S2
+                else:
+                    # channels is a list
+                    array = img.read(channels).astype("float32")
+            if array.shape[1] < 1000 or array.shape[2] < 1000:
+                nr += 1
+                min_s = min(array.shape[1], array.shape[2])
+                if min_s < min_shape:
+                    min_shape = min_s
+                warnings.warn(f'{img_path} is to small: {array.shape} number {nr} minimum shape is {min_shape}')
+                # os.remove(img_path)
+            if array.shape[1] > 1500 or array.shape[2] > 1500:
+                warnings.warn(f'{img_path} is to big: {array.shape}')
+                os.remove(img_path)
+    logger.debug(f"{miss} missing images and {nr} to small images. Smallest size: {min_shape}")
+
+
+
+
 def generator(labels_df, batch_size, input_height, input_width, clipping_values, channels,
               channel_size, num_labels, normalize=False):
     """from Shannon
@@ -153,9 +195,9 @@ def generator(labels_df, batch_size, input_height, input_width, clipping_values,
         11. yields batch"""
     # x_list = os.listdir(x_path)
     # x_list = [x for x in x_list if x.endswith('.tif')]
-    # print(x_list)
+    # logger.debug(x_list)
     # for x in x_list:
-    #     print(x)
+    #     logger.debug(x)
     # assert all([i.endswith('.tif') for i in x_list])
     #Shuffle elements in list, so that batches consists of images of different surveys
     # random.shuffle(x_list)
@@ -179,7 +221,7 @@ def generator(labels_df, batch_size, input_height, input_width, clipping_values,
             else:
                 #channels is a list
                 array = img.read(channels).astype("float32")
-
+        # logger.debug(array.shape)
         array[np.isnan(array)] = 0
         assert not np.any(np.isnan(array)), "Float"
         #Clipping at values 0 n 3000
@@ -195,10 +237,10 @@ def generator(labels_df, batch_size, input_height, input_width, clipping_values,
         #     assert not np.any(np.isnan(array)), "Normalize"
         # Add to batch
         batch_x[batch_ele] = array
-        #print('Array', type(array), '\n', array)
+        #logger.debug('Array', type(array), '\n', array)
         #array = cv2.resize(array, (224,224))     # resize image to match model's expected sizing
         #array = array.reshape(1,224,224,3) # return the image with shaping that TF wants.
-        # print('Array', type(array), '\n', array)
+        # logger.debug('Array', type(array), '\n', array)
         # sys.exit()
 
         #Get corresponding label y
@@ -217,7 +259,7 @@ def generator(labels_df, batch_size, input_height, input_width, clipping_values,
         if (batch_ele+1) == batch_size:
             batch_x = batch_x.transpose(0,2,3,1)
             #Return of batch_x,batch_y
-            # print(batch_y)
+            # logger.debug(batch_y)
             yield batch_x.astype(np.float32), batch_y.astype(np.float32)
             #Reset settings -> Start of next batch generation
             batch_ele = 0
@@ -257,3 +299,22 @@ def transform_data_for_ImageDataGenerator(datasets_l):
         ds_l.append((ds_x, ds_y))
         t_transform += time.time() - t1
     return ds_l, t_ele, t_transform, time.time() - t_0
+
+
+def testing_imgs():
+    label_csv = '/mnt/datadisk/data/Projects/water/inputs/water_labels.csv'
+    labels_df = pd.read_csv(label_csv)
+    base_path = '/mnt/datadisk/data/Sentinel2/raw/'
+    if base_path:
+        # create pathes
+        print(labels_df['path'].count())
+        labels_df['path'] = np.NaN
+        print(labels_df['path'].count())
+        labels_df['path'] = base_path + labels_df['GEID'] + labels_df['DHSID'].str[-8:] + '.tif'
+        available_files = hu.files_in_folder(base_path)
+        # check if actually available
+        labels_df["path"] = labels_df['path'].apply(lambda x: x if x in available_files else np.NaN)
+    channels = [4, 3, 2]
+    test_imgs(labels_df, channels)
+
+#testing_imgs()
