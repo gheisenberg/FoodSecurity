@@ -9,6 +9,12 @@ import random
 import warnings
 import helper_utils as hu
 import config as cfg
+import tensorflow as tf
+import math
+from functools import partial
+
+###private imports
+import geo_utils as gu
 logger = hu.setup_logger(cfg.logging)
 
 #Create class weights for the prediction model as our data set is imbalanced (acoount higher weight to classes with
@@ -45,6 +51,74 @@ def create_class_weights_dict(train_path, labels_df):
     #looks suspicious, should be alright though (works at least)
     class_weights_d = dict(enumerate(class_weights,))
     return class_weights_d
+
+
+def dataset_creator(df, height, width, channel_l, shuffle=False, batch_size=16, cache_p=False, verbose=False, prediction_type='regression', num_labels=False):
+    steps_per_epoch = math.ceil(len(df)/batch_size)
+    files = tf.data.Dataset.from_tensor_slices(tf.constant(df['path']))
+    labels = np.array(df['label'])
+    if prediction_type == 'regression':
+        labels = labels.reshape(-1, 1)
+    elif prediction_type == 'categorical':
+        labels = tf.constant(labels)
+        labels = tf.one_hot(labels, num_labels)
+    else:
+        raise ValueError(f"cfg.type_m or respectively prediction_type must be 'regression' or 'categorical' it is"
+                         f" {prediction_type} though")
+    labels = tf.data.Dataset.from_tensor_slices(labels)
+    assert len(files) == len(labels)
+    if verbose:
+        logger.debug('files ds %s', files)
+        logger.debug('labels ds %s', labels)
+    func = partial(gu.load_geotiff, height=height, width=width, channel_l=channel_l, only_return_array=True)
+    ds = files.map(lambda x: tf.py_function(func, [x], tf.float32),
+                num_parallel_calls=tf.data.AUTOTUNE)
+    if verbose:
+        logger.debug('Read imgs ds %s', ds)
+    assert len(ds) == len(labels)
+    ds = tf.data.Dataset.zip((ds, labels))
+    if verbose:
+        logger.debug('Zipped ds %s %s', ds, len(ds))
+    #significantly improves speed! ~25%
+    if cache_p:
+        ds = ds.cache(cache_p)
+        #buffer_size does not seem to influence the performance
+        #to do: set on True again?!
+    if shuffle:
+        ds = ds.shuffle(batch_size, reshuffle_each_iteration=False)
+    ds = ds.batch(batch_size)
+    #does not seem to have an influence when used with cached datasets
+    ds = ds.prefetch(tf.data.AUTOTUNE)
+    if verbose:
+        logger.debug('Final ds %s', ds)
+        logger.debug('steps p epoch %s', steps_per_epoch)
+    return ds, steps_per_epoch
+
+
+def dataset_creator_production(df, height, width, channel_l, shuffle=False, batch_size=16, cache_p=False, verbose=False, prediction_type='regression', num_labels=False):
+    steps_per_epoch = math.ceil(len(df)/batch_size)
+    files = tf.data.Dataset.from_tensor_slices(tf.constant(df['path']))
+    if verbose:
+        logger.debug('files ds %s', files)
+    func = partial(gu.load_geotiff, height=height, width=width, channel_l=channel_l, only_return_array=True)
+    ds = files.map(lambda x: tf.py_function(func, [x], tf.float32),
+                num_parallel_calls=tf.data.AUTOTUNE)
+    if verbose:
+        logger.debug('Read imgs ds %s', ds)
+    #significantly improves speed! ~25%
+    if cache_p:
+        ds = ds.cache(cache_p)
+        #buffer_size does not seem to influence the performance
+        #to do: set on True again?!
+    if shuffle:
+        ds = ds.shuffle(batch_size, reshuffle_each_iteration=False)
+    ds = ds.batch(batch_size)
+    #does not seem to have an influence when used with cached datasets
+    ds = ds.prefetch(tf.data.AUTOTUNE)
+    if verbose:
+        logger.debug('Final ds %s', ds)
+        logger.debug('steps p epoch %s', steps_per_epoch)
+    return ds, steps_per_epoch
 
 
 #Generate iterable object for model.fit()

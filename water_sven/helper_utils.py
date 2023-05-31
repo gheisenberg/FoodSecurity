@@ -12,6 +12,43 @@ import colorlog
 import config as cfg
 
 
+def setup_logger(logging_level):
+    logger = logging.getLogger('my_app')
+    logger.setLevel(logging.DEBUG)
+
+    # Remove any existing handlers from the logger
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+
+    # Create a console handler for logging to stdout
+    console_handler = logging.StreamHandler(sys.stdout)
+    if logging_level == 'debug':
+        logger.setLevel(logging.DEBUG)  # Set the logger level
+        console_handler.setLevel(logging.DEBUG)
+    elif logging_level == 'info':
+        logger.setLevel(logging.INFO)  # Set the logger level
+        console_handler.setLevel(logging.INFO)
+    elif logging_level == 'warning':
+        logger.setLevel(logging.WARNING)  # Set the logger level
+        console_handler.setLevel(logging.WARNING)
+    else:
+        logger.setLevel(logging.ERROR)  # Set the logger level
+        console_handler.setLevel(logging.ERROR)
+
+    # Set up the color formatter
+    color_formatter = colorlog.ColoredFormatter(
+        fmt='%(log_color)s %(levelname)s: %(message)s',
+        datefmt=None,
+        reset=True,
+    )
+
+    console_handler.setFormatter(color_formatter)
+    logger.addHandler(console_handler)
+
+    return logger
+logger = setup_logger(cfg.logging)
+
+
 def paths_from_base_path(base_path, folders_d, add_d=False, verbose=1):
     """Returns subfolders from a base folder (creates them if necessary)
 
@@ -100,10 +137,12 @@ def powerset(iterable):
     return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
 
-def files_in_folder(path, return_pathes=True, return_folders=False, sort=False):
+def files_in_folder(path, return_pathes=True, return_folders=False, sort=False, verbose=False):
+    if not os.path.exists(path):
+        raise ValueError('Path does not exist', path)
     for (dirpath, dirnames, filenames) in walk(path):
-        if cfg.verbose:
-            logger.debug('%s\n %s\n %s',dirpath, dirnames, filenames)
+        if cfg.verbose or verbose:
+            print('%s\n %s\n %s', dirpath, dirnames, filenames)
         f = filenames
         if return_folders:
             f = [d + '/' for d in dirnames]
@@ -114,39 +153,3 @@ def files_in_folder(path, return_pathes=True, return_folders=False, sort=False):
         f = sorted(f)
     return f
 
-
-def setup_logger(logging_level):
-    logger = logging.getLogger('my_app')
-    logger.setLevel(logging.DEBUG)
-
-    # Remove any existing handlers from the logger
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
-
-    # Create a console handler for logging to stdout
-    console_handler = logging.StreamHandler(sys.stdout)
-    if logging_level == 'debug':
-        logger.setLevel(logging.DEBUG)  # Set the logger level
-        console_handler.setLevel(logging.DEBUG)
-    elif logging_level == 'info':
-        logger.setLevel(logging.INFO)  # Set the logger level
-        console_handler.setLevel(logging.INFO)
-    elif logging_level == 'warning':
-        logger.setLevel(logging.WARNING)  # Set the logger level
-        console_handler.setLevel(logging.WARNING)
-    else:
-        logger.setLevel(logging.ERROR)  # Set the logger level
-        console_handler.setLevel(logging.ERROR)
-
-    # Set up the color formatter
-    color_formatter = colorlog.ColoredFormatter(
-        fmt='%(log_color)s %(levelname)s: %(message)s',
-        datefmt=None,
-        reset=True,
-    )
-
-    console_handler.setFormatter(color_formatter)
-    logger.addHandler(console_handler)
-
-    return logger
-logger = setup_logger(cfg.logging)

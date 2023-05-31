@@ -1,6 +1,7 @@
 import os
 import itertools
 import matplotlib.pyplot as plt
+from matplotlib import cm
 import numpy as np
 from sklearn.metrics import classification_report, confusion_matrix
 import pandas as pd
@@ -68,13 +69,14 @@ def plot_history(history, save_path, type_m, verbose=1):
                 plt.ylim(0, 1)
             #plt.show()
             #Save
+            plt.tight_layout()
             plt.savefig(save_path + key)
             plt.close()
             #asd
 
 
 def standard_hist_from_df(df, path, file_n, title_in, bins_count='auto',
-                          minv=False, maxv=False, title_add='standard', xlabel='PC1', ylabel='count',
+                          minv=False, maxv=False, title_add='stats', xlabel='PC1', ylabel='count',
                           xlim=3.5, xticks=1):
     if minv or maxv:
         df = df[(df > minv) & (df < maxv)]
@@ -86,88 +88,194 @@ def standard_hist_from_df(df, path, file_n, title_in, bins_count='auto',
     # if xticks:
     #     plt.xticks(np.arange(int(df.min()), int(df.max()), step=xticks))
     # write len, mean std as header to plot
-    title = title_in
-    if title_add == 'standard':
+    title = str(title_in)
+    if title_add == 'stats':
         title += f"\nn={len(df)}, mean={df.mean():.2f}, std={df.std():.2f}, skew={df.skew():.2f}, kurt={df.kurtosis():.2f}"
     plt.title(title)#, pad=20)
     #label x axis
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.savefig(path + ' ' + file_n + ' ' + title_in + '.png')
-    plt.clf()
-
-
-def histogram(df, stat, title, path, file_n, limit_above=120):
-    plt.figure()
-    if not type(max(df)) == str and max(df) >= limit_above:
-        bins = list(range(-4, 101, 5))
-        ax = sns.displot(df, stat=stat, bins=bins)
-    else:
-        ax = sns.displot(df, stat=stat)
-    if type(max(df)) == str:
-        ax.set_xticklabels(rotation=90)
-        plt.xlabel('')
-    plt.title(title)
-    # plt.show(bbox_inches='tight')
-    plt.savefig(path + file_n, bbox_inches='tight')
+    plt.savefig(path + ' ' + file_n + ' ' + str(title_in) + '.png')
     plt.close()
 
 
-# plot as scatter plot and compute a regression line, including alpha and beta
-def scatterplotRegression(df, run_path, file_name=''):
-    """Plots a Regressionplot with a text annotation containing additional information
-    Args:
-        df (pd.DataFrame): DataFrame consisting of the Actual and the Predicted Volatility Values
-        model_type (str): Name of the model
-        EPOCHS (int): the amount of epochs, the model was trained on
-        BATCH_SIZE (int): number of training examples
-        It does not return anything, but plots a regression plot and saves it
-    """
-    beta, alpha = np.polyfit(df.iloc[:,0], df.iloc[:,1], 1)
-    corr_value = df.corr(method="pearson")
-    pearson_corr = corr_value.iloc[1,0]
-    rmse = ((df.iloc[:, 0] - df.iloc[:, 1]) ** 2).mean() ** .5
-    parameter_text = "\n".join(
-        (
-            r"$pearson\ corr=%.2f$" % (pearson_corr,),
-            r"$slope: \beta=%.2f$" % (beta,),
-            r"$intercept: \alpha=%.2f$" % (alpha,),
-            r"$rmse: \alpha=%.2f$" % (rmse,),
-        )
-    )
-    logger.debug(file_name)
-    logger.debug(parameter_text)
-    plt.figure()
-    sns.set(rc={"figure.figsize": (15, 10)})
-    sns.regplot(
-        data=None,
-        x=df.iloc[:,0],
-        y=df.iloc[:,1],
-        x_ci="sd",
-        scatter=True,
-        line_kws={"color": "red"},
-    )
-    # add text annotation
-    # set the textbox color to purple
-    purple_rgb = (255.0 / 255.0, 2.0 / 255.0, 255.0 / 255.0)
+def plot_DBSCAN(df_clustered, path, file_n):
+    # Plot the results
+    plt.figure(figsize=(10, 10))
+    plt.scatter(df_clustered['LONGNUM'], df_clustered['LATNUM'], c=df_clustered['clustered'], cmap='viridis')
+    plt.title('DBSCAN Clustering')
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.colorbar(label='Cluster')
     plt.grid(True)
-    plt.annotate(
-        parameter_text,
-        xy=(0.03, 0.8),
-        xycoords="axes fraction",
-        ha="left",
-        fontsize=14,
-        # color=purple_rgb,
-        backgroundcolor="w",
-    )
-    plt.title('Scatterplot', fontsize=14)
-    plt.xlabel('Actual', fontsize=14)
-    plt.ylabel('Prediction', fontsize=14)
-    # finally save the chart to disk
-    plt.savefig(run_path + 'Scatterplot_' + file_name + ".png", dpi=300, bbox_inches="tight")
-    # plt.show()
+    plt.savefig(path + file_n + '.png')
     plt.close()
-    return beta, alpha, pearson_corr, rmse
+
+
+from itertools import cycle
+
+
+def plot_dataframe(df, x_column, y_columns, run_path, file_name, title, label_reduce=False,
+                   color_keywords=None, linestyle_keywords=None, xlabel='km', ylabel=False):
+    """
+    Plot selected columns from a DataFrame.
+
+    Parameters:
+    df (DataFrame): DataFrame containing the data to plot.
+    x_column (str): Column name to use for x-axis.
+    y_columns (list): List of column names to plot on y-axis.
+    """
+
+    # Create a new figure
+    plt.figure()
+    if len(y_columns) > 7:
+        plt.figure(figsize=(15, 10))
+
+    # Define color palette
+    color_palette = cm.get_cmap('tab10', len(y_columns))
+
+    # Create a cycle of colors
+    color_cycle = cycle(range(len(y_columns)))
+
+    # Create a dictionary to hold assigned colors for labels
+    label_color_dict = {}
+
+    # Create dictionaries for color and linestyle keywords if provided
+    color_keywords_dict = {keyword: next(color_cycle) for keyword in color_keywords} if color_keywords else {}
+    linestyle_list = ['-', '--', ':', '-.']
+    linestyle_keywords_dict = {keyword: linestyle_list[i % len(linestyle_list)] for i, keyword in
+                               enumerate(linestyle_keywords)} if linestyle_keywords else {}
+    # Loop over the columns and add each one to the plot
+    for y_column in y_columns:
+        label = y_column
+        if label_reduce:
+            label = label.replace(label_reduce, "")
+
+        # Assign color based on label
+        color_index = next((color_keywords_dict[keyword] for keyword in color_keywords_dict if keyword in label),
+                           label_color_dict.get(label, next(color_cycle)))
+        label_color_dict[label] = color_index
+
+        # Assign linestyle based on label
+        linestyle = next((linestyle_keywords_dict[keyword] for keyword in linestyle_keywords_dict if keyword in label),
+                         '-')
+
+        plt.plot(df[x_column], df[y_column], label=label, color=color_palette(color_index), linestyle=linestyle)
+
+    # Add a legend to the plot
+    plt.legend()
+    if xlabel:
+        plt.xlabel(xlabel)
+    if ylabel:
+        plt.ylabel(ylabel)
+    plt.title(title)
+
+    # Save the plot
+    plt.savefig(run_path + file_name + ' ' + title + '.png')
+    plt.close()
+
+
+def plot_dataframe_old(df, x_column, y_columns, run_path, file_name, title, label_split_at_space=False, dashed_lines=False):
+    """
+    Plot selected columns from a DataFrame.
+
+    Parameters:
+    df (DataFrame): DataFrame containing the data to plot.
+    x_column (str): Column name to use for x-axis.
+    y_columns (list): List of column names to plot on y-axis.
+    """
+
+    # Create a new figure
+    plt.figure()
+
+    # Loop over the columns and add each one to the plot
+    for i, y_column in enumerate(y_columns):
+        label = y_column
+        if label_split_at_space:
+            label = label.rsplit(' ', label_split_at_space)[0]
+        linestyle = '--' if dashed_lines and dashed_lines[i] else '-'
+        plt.plot(df[x_column], df[y_column], label=label, linestyle=linestyle)
+
+    # Add a legend to the plot
+    plt.legend()
+    plt.title(title)
+
+    # Show the plot
+    plt.savefig(run_path + file_name + title + '.png')
+    plt.close()
+
+
+# def histogram(df, stat, title, path, file_n, limit_above=120):
+#     plt.figure()
+#     if not type(max(df)) == str and max(df) >= limit_above:
+#         bins = list(range(-4, 101, 5))
+#         ax = sns.displot(df, stat=stat, bins=bins)
+#     else:
+#         ax = sns.displot(df, stat=stat)
+#     if type(max(df)) == str:
+#         ax.set_xticklabels(rotation=90)
+#         plt.xlabel('')
+#     plt.title(title)
+#     # plt.show(bbox_inches='tight')
+#     plt.savefig(path + file_n, bbox_inches='tight')
+#     plt.close()
+
+#
+# # plot as scatter plot and compute a regression line, including alpha and beta
+# def scatterplotRegression(df, run_path, file_name=''):
+#     """Plots a Regressionplot with a text annotation containing additional information
+#     Args:
+#         df (pd.DataFrame): DataFrame consisting of the Actual and the Predicted Volatility Values
+#         model_type (str): Name of the model
+#         EPOCHS (int): the amount of epochs, the model was trained on
+#         BATCH_SIZE (int): number of training examples
+#         It does not return anything, but plots a regression plot and saves it
+#     """
+#     beta, alpha = np.polyfit(df.iloc[:,0], df.iloc[:,1], 1)
+#     corr_value = df.corr(method="pearson")
+#     pearson_corr = corr_value.iloc[1,0]
+#     rmse = ((df.iloc[:, 0] - df.iloc[:, 1]) ** 2).mean() ** .5
+#     parameter_text = "\n".join(
+#         (
+#             r"$pearson\ corr=%.2f$" % (pearson_corr,),
+#             r"$slope: \beta=%.2f$" % (beta,),
+#             r"$intercept: \alpha=%.2f$" % (alpha,),
+#             r"$rmse: \alpha=%.2f$" % (rmse,),
+#         )
+#     )
+#     logger.debug(file_name)
+#     logger.debug(parameter_text)
+#     plt.figure()
+#     sns.set(rc={"figure.figsize": (15, 10)})
+#     sns.regplot(
+#         data=None,
+#         x=df.iloc[:,0],
+#         y=df.iloc[:,1],
+#         x_ci="sd",
+#         scatter=True,
+#         line_kws={"color": "red"},
+#     )
+#     # add text annotation
+#     # set the textbox color to purple
+#     purple_rgb = (255.0 / 255.0, 2.0 / 255.0, 255.0 / 255.0)
+#     plt.grid(True)
+#     plt.annotate(
+#         parameter_text,
+#         xy=(0.03, 0.8),
+#         xycoords="axes fraction",
+#         ha="left",
+#         fontsize=14,
+#         # color=purple_rgb,
+#         backgroundcolor="w",
+#     )
+#     plt.title('Scatterplot', fontsize=14)
+#     plt.xlabel('Actual', fontsize=14)
+#     plt.ylabel('Prediction', fontsize=14)
+#     # finally save the chart to disk
+#     plt.savefig(run_path + 'Scatterplot_' + file_name + ".png", dpi=300, bbox_inches="tight")
+#     # plt.show()
+#     plt.close()
+#     return beta, alpha, pearson_corr, rmse
 
 
 def scatterplotRegressionMultiInputs(df, run_path, file_name='', multidataset_col=False,
@@ -197,10 +305,11 @@ def scatterplotRegressionMultiInputs(df, run_path, file_name='', multidataset_co
         metrics_df == df[df[multidataset_col] == 'test']
 
     beta, alpha = np.polyfit(metrics_df.iloc[:,0], metrics_df.iloc[:,1], 1)
-    corr_value = metrics_df.corr(method="pearson")
+    corr_value = metrics_df.iloc[:,:2].corr(method="pearson")
     pearson_corr = corr_value.iloc[1,0]
     rmse = ((metrics_df.iloc[:, 0] - metrics_df.iloc[:, 1]) ** 2).mean() ** 0.5
     nrmse = rmse / metrics_df.iloc[:, 0].std()
+
     parameter_text = "\n".join(
         (
             r"$pearson\ corr=%.2f$" % (pearson_corr,),
@@ -249,7 +358,7 @@ def scatterplotRegressionMultiInputs(df, run_path, file_name='', multidataset_co
             # line_kws={"color": colors[i]},  # Use a different color for each predicted column
         )
 
-    plt.title('Scatterplot', fontsize=14)
+    plt.title(f'Scatterplot (n={len(df)})', fontsize=14)
     plt.xlabel('Actual', fontsize=14)
     plt.ylabel('Prediction', fontsize=14)
     if multidataset_col:

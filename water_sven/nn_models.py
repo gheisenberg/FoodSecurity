@@ -58,6 +58,7 @@ def add_classification_top_layer(model, out_classes, neurons_l, type_m='categori
                      'ges_layers', len(model.layers))
     #Add extra layers and always pass the output tensor to next layer
     x = model.output
+    #to do: try out different pooling layers
     x = GlobalAveragePooling2D()(x)
     #add multiple layers defined in neurons_l
     for neurons in neurons_l:

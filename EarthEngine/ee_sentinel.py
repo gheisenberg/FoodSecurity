@@ -43,9 +43,9 @@ from pydrive.files import ApiRequestError
 
 ###Options###
 ##Paths
-label_csv = '/mnt/datadisk/data/Projects/water/inputs/water_labels.csv'
-# label_csv = '/mnt/datadisk/data/Projects/water/inputs/Moz_Grid_Points_10km.csv'
-img_p = '/mnt/datadisk/data/Sentinel2/moz/'
+# label_csv = '/mnt/datadisk/data/Projects/water/inputs/water_labels.csv'
+label_csv = '/mnt/datadisk/data/Projects/water/inputs/Moz_Grid_Points_10km.csv'
+img_p = '/mnt/datadisk/data/Sentinel2/moz_grid/'
 # img_p = '/mnt/datadisk/data/Sentinel2/moz_grid/'
 #used to debug locally: set to False for actual DL
 testing = False
@@ -69,8 +69,8 @@ final_waiting_time = 6
 ##Downloads S2 images for specified country and year at places where there have been surveys
 #use country name or False
 download_country = 'Mozambique'
-#specify year (only active if download country is DHS country code)
-download_year = 2022
+#specify year (only active if download country is given)
+download_year = 2018
 # Paths
 # Path to Label Data
 # csv_dir = csv_path

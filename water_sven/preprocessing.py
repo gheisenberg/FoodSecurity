@@ -198,27 +198,37 @@ def main():
             means = False
             stds = False
             outpath = f"{preprocessed_p}{cfg.height}x{cfg.width}_c{''.join(str(c) for c in cfg.channel_l)}" \
-                      f"_fill{cfg.fill_method}_m{cfg.std_multiplier}_r{cfg.replace_nan_value}_clipv{cfg.clipping_values}" \
-                      f"_norm{geotiff_normalization}_f{len(filenames)}/"
+                      f"_fill{cfg.fill_method}_r{cfg.replace_nan_value}_clipv{cfg.clipping_values}" \
+                      f"{cfg.std_multiplier}_norm{geotiff_normalization}_f{len(filenames)}/"
             print('Outpath', outpath)
             if not os.path.exists(outpath) or cfg.overwrite:
                 if os.path.exists(outpath):
                     shutil.rmtree(outpath)
                 os.mkdir(outpath)
                 if geotiff_normalization == 'Z' or geotiff_normalization == 'Z combined':
-                    print('Calculating means and stds')
-                    means, nulls = calc_mean(filenames, cfg.height, cfg.width, cfg.channel_l, cfg.replace_nan_value,
-                                      cfg.clipping_values, cfg.std_multiplier)
-                    nulls = dict(sorted(nulls.items(), key=lambda item: item[1][0]))
-                    # print('Missing values', nulls)
-                    # for k, v in nulls.items():
-                    #     print(k, v)
-                    with open(os.path.join(preprocessed_p, 'null_values_gtiff'), 'wb') as file_pi:
-                        pickle.dump(nulls, file_pi)
-                    stds = calc_std(filenames, cfg.height, cfg.width, cfg.channel_l, cfg.replace_nan_value, cfg.clipping_values,
-                                    cfg.std_multiplier, means)
-                    t2 = time.time()
-                    print('Calculated means and stds for Z normalization', (t2 - ts)/60, 'mins')
+                    if cfg.load_means_stds_f:
+                        print('Loading means and stds')
+                        with open(cfg.load_means_stds_f, 'rb') as file_pi:
+                            (means, stds) = pickle.load(file_pi)
+                        print('Loaded means and stds')
+                        print(f'channel means {means}, stds {stds}')
+                    else:
+                        print('Calculating means and stds')
+                        means, nulls = calc_mean(filenames, cfg.height, cfg.width, cfg.channel_l, cfg.replace_nan_value,
+                                          cfg.clipping_values, cfg.std_multiplier)
+                        nulls = dict(sorted(nulls.items(), key=lambda item: item[1][0]))
+                        # print('Missing values', nulls)
+                        # for k, v in nulls.items():
+                        #     print(k, v)
+                        with open(os.path.join(preprocessed_p, 'null_values_gtiff'), 'wb') as file_pi:
+                            pickle.dump(nulls, file_pi)
+                        stds = calc_std(filenames, cfg.height, cfg.width, cfg.channel_l, cfg.replace_nan_value, cfg.clipping_values,
+                                        cfg.std_multiplier, means)
+                        t2 = time.time()
+                        print('Calculated means and stds for Z normalization', (t2 - ts)/60, 'mins')
+                        print(f'channel means {means}, stds {stds}')
+                        with open(outpath + 'means_stds', 'wb') as file_pi:
+                            pickle.dump((means, stds), file_pi)
 
                 ###Write Geotiffs
                 t1 = time.time()
@@ -231,8 +241,11 @@ def main():
                                std_multiplier=cfg.std_multiplier, means=means, stds=stds, write='geotiff', base_p_w=outpath)
                 with ProcessPoolExecutor() as executor:
                     results = list(executor.map(func, filenames))
+
                 t2 = time.time()
                 print('Normalized and wrote geotiffs', (t2 - t1) / 60, 'mins')
+            else:
+                raise ValueError('Outpath already exists', outpath)
     print('Overall time', (time.time() - ts)/60, 'mins')
 
 
