@@ -52,7 +52,8 @@ splits_l = [
     # 'split: out of country year urban 2012plus excluded drop surveys (ZAuEG) MZ in train',
     # 'split: out of country year urban 2012plus excluded outlier surveys MZ in train',
     # 'split: out of adm1 year all 2012plus',
-    'split: out of adm2 year all 2012plus',
+    'split: non overlapping urban 2012plus',
+    'split: random urban 2012plus',
     # 'split: out of country all 2012plus MZ in train',
     # 'split: out of country year all MZ in train',
     # 'split: out of country year all excluded outlier surveys MZ in train',
@@ -119,7 +120,7 @@ channels = False
 #                                  Basic neural network parameters
 ########################################################################################################################
 ### Maximum amount of epochs
-epochs = 1
+epochs = 100
 ### Learning rate (to start with - might get dynamically lowered with callback options)
 lr = 0.0001
 # How many pictures are used to train before readjusting weights
