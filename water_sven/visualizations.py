@@ -1,3 +1,4 @@
+import math
 import os
 import itertools
 import matplotlib.pyplot as plt
@@ -116,14 +117,29 @@ from itertools import cycle
 
 
 def plot_dataframe(df, x_column, y_columns, run_path, file_name, title, label_reduce=False,
-                   color_keywords=None, linestyle_keywords=None, xlabel='km', ylabel=False):
+                   color_keywords=None, linestyle_keywords=None, xlabel='km', ylabel=False,
+                   add_linestyle_to_color_keywords=False):
     """
-    Plot selected columns from a DataFrame.
+    Plot selected columns from a DataFrame with the ability to customize the color and linestyle of the lines
+    in the plot based on specified keywords.
 
     Parameters:
-    df (DataFrame): DataFrame containing the data to plot.
+    df (pd.DataFrame): DataFrame containing the data to plot.
     x_column (str): Column name to use for x-axis.
-    y_columns (list): List of column names to plot on y-axis.
+    y_columns (list[str]): List of column names to plot on y-axis.
+    run_path (str): The path where the plot will be saved.
+    file_name (str): The filename of the saved plot.
+    title (str): Title of the plot.
+    label_reduce (str, optional): Substring to be removed from labels. Defaults to False.
+    color_keywords (list[str], optional): List of keywords to be matched in labels for assigning colors.
+                                          The color assigned is based on the longest match. Defaults to None.
+    linestyle_keywords (list[str], optional): List of keywords to be matched in labels for assigning line styles.
+                                              The linestyle assigned is based on the longest match. Defaults to None.
+    xlabel (str, optional): Label for the x-axis. Defaults to 'km'.
+    ylabel (str, optional): Label for the y-axis. If False, no y-label will be added. Defaults to False.
+    add_linestyle_to_color_keywords (bool, optional): If True, color_keywords must be provided and each element of
+                                                      color_keywords will be combined with each element of linestyle_keywords
+                                                      to form a new set of keywords for assigning colors. Defaults to False.
     """
 
     # Create a new figure
@@ -136,29 +152,46 @@ def plot_dataframe(df, x_column, y_columns, run_path, file_name, title, label_re
 
     # Create a cycle of colors
     color_cycle = cycle(range(len(y_columns)))
+    if color_keywords and not add_linestyle_to_color_keywords:
+        color_cycle = cycle(range(len(color_keywords)))
 
     # Create a dictionary to hold assigned colors for labels
     label_color_dict = {}
 
     # Create dictionaries for color and linestyle keywords if provided
+    if add_linestyle_to_color_keywords:
+        if not color_keywords:
+            raise ValueError("If add_linestyle_to_color_keywords is True, color_keywords must be provided.")
+        if not linestyle_keywords:
+            raise ValueError("If add_linestyle_to_color_keywords is True, linestyle_keywords must be provided.")
+        #this should generate a
+        color_keywords = [c + ' ' + l for c in color_keywords for l in linestyle_keywords]
+
     color_keywords_dict = {keyword: next(color_cycle) for keyword in color_keywords} if color_keywords else {}
     linestyle_list = ['-', '--', ':', '-.']
     linestyle_keywords_dict = {keyword: linestyle_list[i % len(linestyle_list)] for i, keyword in
                                enumerate(linestyle_keywords)} if linestyle_keywords else {}
     # Loop over the columns and add each one to the plot
     for y_column in y_columns:
+        #skip empty columns
+        if df[y_column].isnull().all():
+            continue
         label = y_column
         if label_reduce:
             label = label.replace(label_reduce, "")
 
-        # Assign color based on label
-        color_index = next((color_keywords_dict[keyword] for keyword in color_keywords_dict if keyword in label),
+        # Sort color keywords by length in descending order
+        sorted_color_keywords = sorted(color_keywords_dict, key=len, reverse=True)
+        # Assign color based on label, with longer matches prioritized
+        color_index = next((color_keywords_dict[keyword] for keyword in sorted_color_keywords if keyword in label),
                            label_color_dict.get(label, next(color_cycle)))
         label_color_dict[label] = color_index
 
-        # Assign linestyle based on label
-        linestyle = next((linestyle_keywords_dict[keyword] for keyword in linestyle_keywords_dict if keyword in label),
-                         '-')
+        # Sort linestyle keywords by length in descending order
+        sorted_linestyle_keywords = sorted(linestyle_keywords_dict, key=len, reverse=True)
+        # Assign linestyle based on label, with longer matches prioritized
+        linestyle = next((linestyle_keywords_dict[keyword] for keyword in sorted_linestyle_keywords if keyword in label),
+            '-')
 
         plt.plot(df[x_column], df[y_column], label=label, color=color_palette(color_index), linestyle=linestyle)
 

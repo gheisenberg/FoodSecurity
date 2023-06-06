@@ -3,10 +3,11 @@
 
 ###general imports
 import os
-#turn off cryptic warnings, Note that you might miss important warnings! If unexpected stuff is happening turn it on!
-#https://github.com/tensorflow/tensorflow/issues/27023
-#Thanks @Mrs Przibylla
-#'1' = Infos, '2' = warnings, '3' = Errors
+
+# turn off cryptic warnings, Note that you might miss important warnings! If unexpected stuff is happening turn it on!
+# https://github.com/tensorflow/tensorflow/issues/27023
+# Thanks @Mrs Przibylla
+# '1' = Infos, '2' = warnings, '3' = Errors
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import shutil
@@ -31,7 +32,6 @@ import tensorflow_addons as tfa
 import scipy
 import math
 from math import radians, cos, sin, asin, sqrt
-
 
 # from tensorflow.python.framework.ops import disable_eager_execution
 # disable_eager_execution()
@@ -69,7 +69,6 @@ if gpus:
     except RuntimeError as e:
         raise e
 
-
 ###Define Model and MirroredStrategy (for mulit-gpu usage) - shall be initiated at the beginning of the program
 # Create a MirroredStrategy and pass the GPUs
 gpus = ["GPU:" + str(i) for i in cfg.gpus]
@@ -79,8 +78,9 @@ strategy = tf.distribute.MirroredStrategy(gpus)
 logger.info('Number of GPUs MirroredStrategy: {}'.format(strategy.num_replicas_in_sync))
 
 
-def create_run_folders(augmentation_d, img_path, prj_path, trainHistory_subname, label_name=False, split=False, height=False,
-                       width=False):
+def create_run_folders(augmentation_d, img_path, prj_path, trainHistory_subname, label_name=False, split=False,
+                       height=False,
+                       width=False, test_mode=False):
     """Creates a name for the model run by importing settings from config.py.
     This will also be used as the folder name where all files of this run are saved.
     Creates this folder and further subfolders.
@@ -149,6 +149,8 @@ def create_run_folders(augmentation_d, img_path, prj_path, trainHistory_subname,
         run_name = run_name.replace(key, value)
         split = split.replace(key, value)
 
+    if test_mode:
+        trainHistory_subname += 'test_mode/'
     # Create paths II
     paths_dict = {'trainH_path': ['base_path', trainHistory_subname, False],
                   'train_history_path': ['trainH_path', split, False],
@@ -260,18 +262,17 @@ def model_loader(num_labels, type_m, shape, **aug_d):
     else:
         raise NotImplementedError("The model you want is not implemented right now", cfg.model_name)
 
-
         # base_model = Model(inputs, outputs)
     # Add custom Top Layers (Imagenet has 1000nds of classes - we need 3!)
     if cnn_settings_d['include_top'] is False and cfg.add_custom_top_layers:
         model = nnm.add_classification_top_layer(base_model, num_labels, cfg.neurons_l, type_m,
-                                                      cfg.dropout_top_layers, cfg.unfreeze_layers_perc)
+                                                 cfg.dropout_top_layers, cfg.unfreeze_layers_perc)
         logger.info(f'Final Model with added top layers {type(base_model)} layers {len(base_model.layers)}'
                     f'of which {round(len(base_model.layers) * cfg.unfreeze_layers_perc / 100)} are unfroozen or'
                     f'{cfg.unfreeze_layers_perc} %')
     else:
         model = base_model
-    #Add preprocessing layers
+    # Add preprocessing layers
     if aug_d:
         input_layer = tf.keras.Input(shape=shape)
         aug_layer = augmentation(**aug_d)
@@ -287,7 +288,7 @@ def dataset_creator(train_df, validation_df, test_df, prediction_type, num_label
     ds_l = []
     for typ, df in zip(['train', 'validation', 'test'], [train_df, validation_df, test_df]):
         if typ == 'train':
-            steps_per_epoch_train = math.ceil(len(df)/cfg.batch_size)
+            steps_per_epoch_train = math.ceil(len(df) / cfg.batch_size)
         elif typ == 'validation':
             steps_per_epoch_val = math.ceil(len(df) / cfg.batch_size)
         elif typ == 'test':
@@ -307,7 +308,8 @@ def dataset_creator(train_df, validation_df, test_df, prediction_type, num_label
         if cfg.verbose:
             logger.debug('files ds %s', files)
             logger.debug('labels ds %s', labels)
-        func = partial(gu.load_geotiff, height=input_shape[1], width=input_shape[2], channel_l=channel_l, only_return_array=True)
+        func = partial(gu.load_geotiff, height=input_shape[1], width=input_shape[2], channel_l=channel_l,
+                       only_return_array=True)
         output_signature = tf.TensorSpec(shape=input_shape, dtype=tf.float32)
         ds = files.map(lambda x: tf.py_function(func, [x], output_signature),
                        num_parallel_calls=tf.data.AUTOTUNE)
@@ -317,15 +319,15 @@ def dataset_creator(train_df, validation_df, test_df, prediction_type, num_label
         ds = tf.data.Dataset.zip((ds, labels))
         if cfg.verbose:
             logger.debug('Zipped ds %s %s', ds, len(ds))
-        #significantly improves speed! ~25%
+        # significantly improves speed! ~25%
         if typ == 'train':
             cache_f = cache_p + typ
             ds = ds.cache(cache_f)
-            #buffer_size does not seem to influence the performance
-            #to do: set on True again?!
+            # buffer_size does not seem to influence the performance
+            # to do: set on True again?!
             ds = ds.shuffle(cfg.batch_size, reshuffle_each_iteration=True)
         ds = ds.batch(cfg.batch_size)
-        #does not seem to have an influence when used with cached datasets
+        # does not seem to have an influence when used with cached datasets
         ds = ds.prefetch(tf.data.AUTOTUNE)
         ds_l.append(ds)
     if cfg.verbose:
@@ -344,7 +346,7 @@ def special_replace(row, replace_d, col, labels_df, drop):
                 replace_d[row[0]] = 2.0
                 replaced = True
                 logger.info('replaced label:', row[0], 'n:', row[1][col], '< threshold', len(labels_df) * drop,
-                      'with 2')
+                            'with 2')
     return replace_d, replaced
 
 
@@ -355,7 +357,7 @@ def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0
 
     Args:
         file (str): Path to the CSV file containing the labels: Following columns are required: ['GEID', 'DHSID',
-        'path', split, col, "households", "adm0_name", "adm1_name", "adm2_name", "LATNUM", "LONGNUM", "DHSYEAR"]
+        split, col, "households", "adm0_name", "adm1_name", "adm2_name", "LATNUM", "LONGNUM", "DHSYEAR"]
         col (str): Name of the column containing the labels.
         run_path (str): Path for saving visualizations.
         base_path (str, optional): Base path for checking if there are images, if not provided defaults to False.
@@ -384,7 +386,7 @@ def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0
     """
 
     reverse_label, min_std, max_std, drop_min_max_value, normalization, transform = False, False, False, False, \
-                                                                                                     False, False
+        False, False
     for k, v in kwargs.items():
         if k == 'reverse label':
             reverse_label = v
@@ -408,41 +410,44 @@ def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0
     # shuffle in pandas ##doesnt effect splits
     labels_df = labels_df.sample(frac=1)
 
-    #delete everything where no split is defined
-    #note: in many implementations, the split will make a check for urban/rural, GTIF images and a min_year obsolete
-    #to be sure it is still implemented here, though
+    # delete everything where no split is defined
+    # note: in many implementations, the split will make a check for urban/rural, GTIF images and a min_year obsolete
+    # to be sure it is still implemented here, though
     if split:
         labels_df = labels_df.dropna(subset=[split])
     if base_path:
-        #create pathes
+        # create pathes
         labels_df['path'] = base_path + labels_df['GEID'] + labels_df['DHSID'].str[-8:] + '.tif'
         available_files = hu.files_in_folder(base_path)
-        #check if actually available
+        # check if actually available
         labels_df["path"] = labels_df['path'].apply(lambda x: x if x in available_files else np.NaN)
     if min_year:
-        logger.info(f"If not using min year {min_year} {len(labels_df[labels_df['DHSYEAR'] < min_year])} more data could be "
-              f"used")
+        logger.info(
+            f"If not using min year {min_year} {len(labels_df[labels_df['DHSYEAR'] < min_year])} more data could be "
+            f"used")
         labels_df = labels_df[labels_df['DHSYEAR'] >= min_year]
     if cfg.test_mode:
         labels_df = labels_df[:cfg.test_mode]
-    #create visualization for incoming labels before dropping values
+    # create visualization for incoming labels before dropping values
     visualizations.standard_hist_from_df(labels_df[col], run_path, '', title_in=col)
     visualizations.standard_hist_from_df(labels_df[col], run_path, '', title_in=col + ' wo xlim', xlim=False)
 
     labels_df = labels_df[['GEID', 'DHSID', 'path', split, col, "households", "adm0_name", "adm1_name", "adm2_name",
                            "LATNUM", "LONGNUM", "DHSYEAR", "URBAN_RURA"]]
     labels_df['label'] = labels_df[col]
-    #drop all which have no label or no input
+    # drop all which have no label or no input
     if labels_df[['path', 'label', split]].isnull().any(axis=1).any():
-        logger.warning(f"!!!Caution Missing values getting dropped {len(labels_df[labels_df[['path', 'label']].isnull().any(axis=1)])}"
-                      f" from which are {len(labels_df[labels_df[split].isna()])} not in split,"
-                      f"{len(labels_df[labels_df['path'].isna()])} missing files \n"
-                      f"{len(labels_df[labels_df['label'].isna()])} missing values (overlapping calculation!) \n"
-                      f"--> writing missing files into {cfg.prj_folder + 'missing_files.csv'} "
-                      f" if these have labels")
+        logger.warning(
+            f"!!!Caution Missing values getting dropped {len(labels_df[labels_df[['path', 'label']].isnull().any(axis=1)])}"
+            f" from which are {len(labels_df[labels_df[split].isna()])} not in split,"
+            f"{len(labels_df[labels_df['path'].isna()])} missing files \n"
+            f"{len(labels_df[labels_df['label'].isna()])} missing values (overlapping calculation!) \n"
+            f"--> writing missing files into {cfg.prj_folder + 'missing_files.csv'} "
+            f" if these have labels")
 
         if not labels_df[(labels_df['path'].isna()) & (labels_df['label'].notna())].empty:
-            labels_df[(labels_df['path'].isna()) & (labels_df['label'].notna())].to_csv(cfg.prj_folder + 'missing_files.csv', index=False)
+            labels_df[(labels_df['path'].isna()) & (labels_df['label'].notna())].to_csv(
+                cfg.prj_folder + 'missing_files.csv', index=False)
     # drop all which have no label, no path or no split
     labels_df = labels_df.dropna(subset=['path', 'label', split])
     logger.debug('labels df after dropping na values in path, label and split\n%s', labels_df)
@@ -471,7 +476,7 @@ def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0
                     replace_d[row[0]] = 'other'
                     if cfg.verbose:
                         logger.debug('replaced label:', row[0], 'n:', row[1][col], '< threshold', len(labels_df) * drop,
-                              'with "other"')
+                                     'with "other"')
                 else:
                     replace_d[row[0]] = np.NaN
                     if cfg.verbose:
@@ -492,17 +497,17 @@ def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0
         logger.debug('mean %s', labels_df['label'].mean())
         logger.debug('skew %s', labels_df['label'].skew())
 
-
         if reverse_label:
             labels_df['label'] = labels_df['label'] * (-1.0)
             labels_df['reversed'] = labels_df['label']
             # min max value (dropping or setting to min/max value)
 
         if min_std or max_std:
-            logger.info('min/max value: %s %s %s %s %s %s', min_std, max_std, 'dropping min/max:', labels_df['label'].min(),
+            logger.info('min/max value: %s %s %s %s %s %s', min_std, max_std, 'dropping min/max:',
+                        labels_df['label'].min(),
                         labels_df['label'].max())
             visualizations.standard_hist_from_df(labels_df['label'], run_path, '',
-                                                     title_in='Before removing MIN MAX', xlim=False)
+                                                 title_in='Before removing MIN MAX', xlim=False)
             mean = labels_df['label'].mean()
             stda = labels_df['label'].std()
             if drop_min_max_value:
@@ -519,13 +524,13 @@ def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0
                         mean - min_std * stda
 
         if transform == 'boxcox':
-            #boxcox doesnt work with 0
+            # boxcox doesnt work with 0
             # replace_d = {'label': {0: 0.1}}
             min_v = min(labels_df['label'])
             if min_v <= 0:
                 shift_v = abs(min_v) + 1
                 add_params['shift value'] = shift_v
-                #right shift values (boxcox cant handle negative or 0 values)
+                # right shift values (boxcox cant handle negative or 0 values)
                 labels_df['label'] = labels_df['label'] + shift_v
             # labels_df = labels_df.replace(replace_d)
             array, lmbda = stats.boxcox(labels_df['label'])
@@ -575,6 +580,7 @@ def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0
     # train_df = labels_df[labels_df[split] == 'train']
     # validation_df = labels_df[labels_df[split] == 'validation']
     split_dfs = []
+    test_df = False
     for spl in labels_df[split].unique():
         logger.debug(spl)
         spl_df = labels_df[labels_df[split] == spl]
@@ -615,18 +621,28 @@ def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0
             split_dfs.append(spl_df)
         visualizations.standard_hist_from_df(spl_df['label'], run_path, 'Label', title_in=spl)
     visualizations.standard_hist_from_df(labels_df['label'], run_path, '', title_in='Label')
+    visualizations.standard_hist_from_df(labels_df[labels_df['DHSYEAR'] < 2015]['label'], run_path, '',
+                                         title_in='Label before 2015')
+    visualizations.standard_hist_from_df(labels_df[labels_df['DHSYEAR'] >= 2015]['label'], run_path, '',
+                                         title_in='Label since 2105')
 
     logger.debug('Input Df')
     logger.debug(labels_df['label'])
     logger.debug(labels_df.count())
-    for st, df in zip(['test'] + [s[split].iloc[0] for s in split_dfs], [test_df] + split_dfs):
+    spl_l = [[s[split].iloc[0] for s in split_dfs], split_dfs]
+    if test_df:
+        spl_l[0].append(test_df[split].iloc[0])
+        spl_l[1].append(test_df)
+    for st, df in zip(spl_l[0], spl_l[1]):
+        print(st)
+        print(df)
         if len(df) / len(labels_df) <= 0.08 or len(df) / len(labels_df) >= 0.22:
             logger.warning('%s df\n %s', st, df)
             logger.warning(f'CAUTION!!!: DF has critically low or high amount of values {len(df) / len(labels_df)} \n')
     if len(labels_df['label']) <= break_v:
         logger.warning('WARNING!!!: length of labels is below %s %s %s', break_v, 'len labels', len(labels_df['label']))
         input('Are you sure you want to continue?')
-    #sort add params
+    # sort add params
     add_params = {k: v for k, v in sorted(add_params.items(), key=lambda item: item[0])}
     return split_dfs, test_df, labels_df, label_mapping, add_params, scaler
 
@@ -644,8 +660,8 @@ def reverse_norm_transform(df, normalization, transform, scaler, additional_para
         if normalization:
             if normalization == 'Z':
                 new_df[col] = scaler.inverse_transform(np.array(new_df[col]).reshape(-1, 1))
-                    # reverse_zscore(new_df[col], additional_params['normalization mean'],
-                    #                      additional_params['normalization standard deviation'])
+                # reverse_zscore(new_df[col], additional_params['normalization mean'],
+                #                      additional_params['normalization standard deviation'])
             elif normalization == '0,1':
                 new_df[col] = scaler.inverse_transform(np.array(new_df[col]).reshape(-1, 1))
             else:
@@ -720,28 +736,30 @@ def evaluate_dataset(model, evaluate_ds, steps_per_epoch_evaluate, run_path, lab
 
     if cfg.type_m == 'regression':
         beta, alpha, pearson_corr, rmse, nrmse = \
-            visualizations.scatterplotRegressionMultiInputs(df=evaluate_df[["Actual", "Prediction"]], run_path=eval_path,
-                                                 file_name=split + ' ' + evaluate_mode + add_name)
+            visualizations.scatterplotRegressionMultiInputs(df=evaluate_df[["Actual", "Prediction"]],
+                                                            run_path=eval_path,
+                                                            file_name=split + ' ' + evaluate_mode + add_name)
         for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse"],
                          [beta, alpha, pearson_corr, rmse, nrmse]):
             additional_reports_d[f"{evaluate_mode}_{na}"] = v
         if cfg.report_original_data and \
                 ('label normalization' in label_d or 'transformation' in label_d):
             reversed_evaluate_prediction = reverse_norm_transform(evaluate_df[["Actual", "Prediction"]].copy(),
-                                                     cfg.label_normalization, cfg.label_transform,
-                                                     scaler,
-                                                     additional_params=add_params,
-                                                     run_path=eval_path, **label_d)
+                                                                  cfg.label_normalization, cfg.label_transform,
+                                                                  scaler,
+                                                                  additional_params=add_params,
+                                                                  run_path=eval_path, **label_d)
             evaluate_df["Actual Original Data"] = reversed_evaluate_prediction["Actual"]
             evaluate_df["Pred Original Data"] = reversed_evaluate_prediction["Prediction"]
             beta, alpha, pearson_corr, rmse, nrmse = \
-                visualizations.scatterplotRegressionMultiInputs(df=evaluate_df[["Actual Original Data", "Pred Original Data"]],
-                                                     run_path=eval_path,
-                                                     file_name='Original_Data_' + split + ' ' + evaluate_mode + add_name)
+                visualizations.scatterplotRegressionMultiInputs(
+                    df=evaluate_df[["Actual Original Data", "Pred Original Data"]],
+                    run_path=eval_path,
+                    file_name='Original_Data_' + split + ' ' + evaluate_mode + add_name)
             for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse"],
                              [beta, alpha, pearson_corr, rmse, nrmse]):
                 additional_reports_d[f"{evaluate_mode}_{na}_Original_Data"] = v
-            #proven works
+            # proven works
             # if label_col_in:
             #     beta, alpha, pearson_corr, rmse, nrmse = \
             #         visualizations.scatterplotRegression(df=evaluate_df[[label_col_in, "Actual Original Data"]],
@@ -777,88 +795,34 @@ def evaluate_dataset(model, evaluate_ds, steps_per_epoch_evaluate, run_path, lab
     return additional_reports_d, sk_metrics_d, evaluate_df
 
 
-def haversine(lat1, lon1, lat2, lon2):
-    """
-    Calculate the great circle distance in kilometers between two points
-    on the earth (specified in decimal degrees)
-    """
-    # convert decimal degrees to radians
-    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-
-    # haversine formula
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * asin(sqrt(a))
-    r = 6371 # Radius of earth in kilometers. Use 3956 for miles. Determines return value units.
-    return c * r
-
-
-def evaluate_final_dataset(test_dfs_l, val_dfs_l, run_path, split_names, split_col, labels_df=False):
+def evaluate_final_dataset(test_dfs_l, val_dfs_l, run_path, split_col, labels_df=False):
     if cfg.type_m == 'regression':
-        for folder in ['csv/', 'adm/', 'clustered/', 'moz/', 'clustered/scatter/', 'clustered/dbscan/', 'clustered/csv/']:
+        for folder in ['csv/', 'adm/', 'clustered/', 'moz/', 'clustered/scatter/', 'clustered/dbscan/',
+                       'clustered/csv/']:
             if not os.path.exists(run_path + folder):
                 os.makedirs(run_path + folder)
+
         beta, alpha, pearson_corr, rmse, nrmse = False, False, False, False, False
         eval_d = {}
-        #combine test dfs and calculate the mean prediction of all models as well as test df specific parameters
-        mean_test_df = test_dfs_l[0].copy()
-        for split_name, tdf in zip(split_names, test_dfs_l):
-            mean_test_df[f"{split_name} Prediction"] = tdf["Prediction"]
-            if "Pred Original Data" in tdf.columns:
-                mean_test_df[f"{split_name} Pred Original Data"] = tdf["Pred Original Data"]
-        #drop the test_dfs_l[0] "Prediction" columns (still available as "split X Prediction"
-        mean_test_df = mean_test_df.drop("Prediction", axis=1)
-        if "Pred Original Data" in mean_test_df.columns:
-            mean_test_df = mean_test_df.drop("Pred Original Data", axis=1)
 
-        #calculate mean and STDs
-        if cfg.report_original_data:
-            pred_l = ["Prediction", "Pred Original Data"]
-        else:
-            pred_l = ["Prediction"]
-        for pred in pred_l:
-            pred_cols_l = [c for c in mean_test_df.columns if pred in c]
-            if pred_cols_l:
-                mean_test_df[pred] = mean_test_df[pred_cols_l].mean(axis=1)
-                mean_test_df[f"STD {pred}"] = mean_test_df[pred_cols_l].std(axis=1)
-                # calc statistics of std
-                eval_d[f"mean(Std test {pred})"] = mean_test_df[f"STD {pred}"].mean()
-                eval_d[f"median(Std test {pred})"] = mean_test_df[f"STD {pred}"].median()
-                eval_d[f"min(Std test {pred})"] = mean_test_df[f"STD {pred}"].min()
-                eval_d[f"max(Std test {pred})"] = mean_test_df[f"STD {pred}"].max()
-                eval_d[f"Std(Std test {pred})"] = mean_test_df[f"STD {pred}"].std()
-        #
-        concat_test_df_l = []
-        for n, tdf in zip(split_names, test_dfs_l):
-            tdf['split model'] = n
-            concat_test_df_l.append(tdf)
-        #concat test_df to show different performance of split models
-        concat_test_df = pd.concat(concat_test_df_l)
-
-        #combine val dfs
+        # combine val dfs and test dfs
+        test_df = pd.concat(test_dfs_l)
         final_val_df = pd.concat(val_dfs_l)
 
-        #combine val and test df
-        # drop_cols = [c for c in mean_test_df.columns if 'STD ' in c or "split" in c]
-        combine_test_df = test_dfs_l[0].copy()
-        combine_test_df = combine_test_df.drop(columns='split model')
-        combine_test_df["Prediction"] = mean_test_df["Prediction"]
-        if "Pred Original Data" in mean_test_df.columns:
-            combine_test_df["Pred Original Data"] = mean_test_df["Pred Original Data"]
-        combined_df = pd.concat([final_val_df, combine_test_df])
-        
-        names = ['Val', 'Val: different Split Models', 'Test: Mean', 'Test: all Models']
-        dfs = [final_val_df, final_val_df, mean_test_df, concat_test_df]
-        for stdw in [False, 3.5, 3, 2.5, 2]:
-            combined_df1 = combined_df.copy()
+        names = ['Val', 'Val: different Split Models', 'Test', 'Test: different Split Models']
+        dfs = [final_val_df, final_val_df, test_df, test_df]
+        combined_aggregate_l = []
+        combined_aggregate_names_l = []
+        for stdw in [None, 3, 2]:
+            combined_df1 = test_df.copy()
             if stdw:
                 combined_df1 = combined_df1[(combined_df1['Actual']
-                                          <= combined_df1['Actual'].mean() + combined_df1['Actual'].std() * stdw) &
-                (combined_df1['Actual'] >= combined_df1['Actual'].mean() - combined_df1['Actual'].std() * stdw)]
-            names += [f'Val + Test Mean max STD {str(stdw)}', f'Val + Test Mean: different Split Models {str(stdw)}']
-            dfs += [combined_df1, combined_df1]
-            #create urban and rural and  >= 2015 < 2015 and Moz dfs
+                                             <= combined_df1['Actual'].mean() + combined_df1['Actual'].std() * stdw) &
+                                            (combined_df1['Actual'] >= combined_df1['Actual'].mean() - combined_df1[
+                                                'Actual'].std() * stdw)]
+            # names += [f'Test max STD {stdw}', f'Test different Split Models {stdw}']
+            # dfs += [combined_df1, combined_df1]
+            # create urban and rural and  >= 2015 < 2015 and Moz dfs
             combined_before_2015_df = combined_df1[combined_df1['DHSYEAR'] < 2015]
             combined_since_2015_df = combined_df1[combined_df1['DHSYEAR'] >= 2015]
             moz_df = combined_df1[combined_df1['adm0_name'] == 'Mozambique']
@@ -870,21 +834,22 @@ def evaluate_final_dataset(test_dfs_l, val_dfs_l, run_path, split_names, split_c
             urban_since_2015_df = urban_df[urban_df['DHSYEAR'] >= 2015]
             rural_since_2015_df = rural_df[rural_df['DHSYEAR'] >= 2015]
             rural_before_2015_df = rural_df[rural_df['DHSYEAR'] < 2015]
-            names += [f'Urban {str(stdw)}', f'Rural {str(stdw)}', f'Mozambique {str(stdw)}',
-                      f'Mozambique urban {str(stdw)}', f'Mozambique rural {str(stdw)}', f'Before 2015 {str(stdw)}',
-                      f'Since 2015 {str(stdw)}', f'Urban before 2015 {str(stdw)}',
-                      f'Urban Since 2015 {str(stdw)}', f'Rural before 2015 {str(stdw)}', f'Rural Since 2015 {str(stdw)}']
+            names += [f'Urban STD {stdw}', f'Rural STD {stdw}', f'Mozambique STD {stdw}',
+                      f'Mozambique urban STD {stdw}', f'Mozambique rural STD {stdw}', f'Before 2015 STD {stdw}',
+                      f'Since 2015 STD {stdw}', f'Urban before 2015 STD {stdw}',
+                      f'Urban Since 2015 STD {stdw}', f'Rural before 2015 STD {stdw}',
+                      f'Rural Since 2015 STD {stdw}']
             dfs += [urban_df, rural_df, moz_df, moz_urban_df, moz_rural_df, combined_before_2015_df,
                     combined_since_2015_df, urban_before_2015_df, urban_since_2015_df, rural_before_2015_df,
                     rural_since_2015_df]
 
-            #create aggregates
-            combined_aggregate_l = []
-            combined_aggregate_names_l = []
-            for sub_df_ind, combined_df2 in zip(['All', 'Urban', 'Rural'], [combined_df, urban_df, rural_df]):
-                for adm in ["adm2_name", "adm1_name", "adm0_name"]:
+            # create aggregates
+            for sub_df_ind, combined_df2 in zip(['All', 'Urban', 'Rural'], [combined_df1, urban_df, rural_df]):
+                                            #make sure to get adm2/1 with matching adm0(&1)
+                for adm, cluster_cols in zip(["adm2_name", "adm1_name", "adm0_name"],
+                                             [["adm2_name", "adm1_name", "adm0_name"], ["adm1_name", "adm0_name"],
+                                              ["adm0_name"]]):
                     for year in [False, True]:
-                        cluster_cols = [adm]
                         add_year_str = ''
                         if year:
                             cluster_cols.append('DHSYEAR')
@@ -898,49 +863,58 @@ def evaluate_final_dataset(test_dfs_l, val_dfs_l, run_path, split_names, split_c
                         combined_aggregate_df = combined_aggregate_df.reset_index()
                         add_df = combined_df3[cluster_cols + ['households']].copy()
                         clusters = add_df.groupby(cluster_cols).size().reset_index().rename(columns={0: 'clusters'})
-                        hh = add_df.groupby(cluster_cols)['households'].sum().reset_index().rename(columns={0: 'households sum'})
+                        hh = add_df.groupby(cluster_cols)['households'].sum().reset_index().rename(
+                            columns={0: 'households sum'})
                         combined_aggregate_df = pd.merge(combined_aggregate_df, clusters, on=cluster_cols)
                         combined_aggregate_df = pd.merge(combined_aggregate_df, hh, on=cluster_cols)
-                        if adm != 'adm0_name':
-                            combined_aggregate_df = pd.merge(combined_aggregate_df, combined_df3[[adm, 'adm0_name']], on=adm,
-                                                             how='left')
                         combined_aggregate_df = combined_aggregate_df.reset_index()
                         combined_aggregate_l.append(combined_aggregate_df)
-                        combined_aggregate_names_l.append(f"{sub_df_ind} {adm[:4]}{add_year_str} STD {str(stdw)}")
+                        combined_aggregate_names_l.append(f"{sub_df_ind} {adm[:4]}{add_year_str} STD {stdw}")
                         if year:
                             combined_aggregate_l.append(combined_aggregate_df[combined_aggregate_df['DHSYEAR'] >= 2015])
-                            combined_aggregate_names_l.append(f"{sub_df_ind} {adm[:4]}{add_year_str} since 2015 STD {str(stdw)}")
+                            combined_aggregate_names_l.append(
+                                f"{sub_df_ind} {adm[:4]}{add_year_str} since 2015 STD {stdw}")
                             combined_aggregate_l.append(combined_aggregate_df[combined_aggregate_df['DHSYEAR'] < 2015])
-                            combined_aggregate_names_l.append(f"{sub_df_ind} {adm[:4]}{add_year_str} before 2015 STD {str(stdw)}")
-                        combined_aggregate_l.append(combined_aggregate_df[combined_aggregate_df['adm0_name'] == 'Mozambique'])
-                        combined_aggregate_names_l.append(f"{sub_df_ind} {adm[:4]}{add_year_str} Mozambique STD {str(stdw)}")
+                            combined_aggregate_names_l.append(
+                                f"{sub_df_ind} {adm[:4]}{add_year_str} before 2015 STD {stdw}")
+                        combined_aggregate_l.append(
+                            combined_aggregate_df[combined_aggregate_df['adm0_name'] == 'Mozambique'])
+                        combined_aggregate_names_l.append(
+                            f"{sub_df_ind} {adm[:4]}{add_year_str} Mozambique STD {stdw}")
 
-        #cluster stuff
-        for year in ['', ' since 2015']:
+        # cluster stuff
+        for year in ['']:
             for splitted_n, cluster_cols in zip(['only location', 'location and year'],
                                                 [['clustered'], ['clustered', 'DHSYEAR']]):
                 df_dict = {}
                 for distance in [0.1, 0.2, 0.3, 0.5, 0.7, 1, 2, 3, 4, 5, 6, 8, 10, 15, 20]:
                     if not year:
-                        combined_df2 = combined_df.copy()
+                        combined_df2 = test_df.copy()
                     else:
                         combined_df2 = combined_since_2015_df.copy()
+                    if sub_df_ind == 'All':
+                        combined_df2.to_csv(run_path + f'clustered/csv/1a_{splitted_n}_{year}.csv')
                     clustered_df_in = gu.cluster_coordinates(combined_df2, distance)
+                    if sub_df_ind == 'All':
+                        clustered_df_in.to_csv(run_path + f'clustered/csv/1in_clusters_{splitted_n}_{year}.csv')
                     unclustered_df = clustered_df_in[clustered_df_in['clustered'] == -1]
                     clustered_df_in = clustered_df_in[clustered_df_in['clustered'] != -1]
-                    for sub_df_ind in ['All', 'U', 'R', 'U+R', 'R+U']:
+                    if sub_df_ind == 'All':
+                        combined_df2.to_csv(run_path + f'clustered/csv/1clustered_{splitted_n}_{year}.csv')
+                    for sub_df_ind in ['All', 'U', 'R', 'U+R']:
+                        #, 'R+U']:
                         indi_limit = False
                         indi_with = False
-                        if 'R' == sub_df_ind:
+                        if 'R' == sub_df_ind[0]:
                             indi_limit = 'R'
-                        if 'U' == sub_df_ind:
+                        if 'U' == sub_df_ind[0]:
                             indi_limit = 'U'
                         if 'U+R' == sub_df_ind or 'R+U' in sub_df_ind:
                             indi_with = True
 
-                        #calculate different modi
+                        # calculate different modi
                         if indi_limit and indi_with:
-                            clustered_df = clustered_df_in.groupby(cluster_cols).\
+                            clustered_df = clustered_df_in.groupby(cluster_cols). \
                                 filter(lambda x: (x['URBAN_RURA'] == indi_limit).any())
                             unclustered_df2 = clustered_df.groupby(cluster_cols).filter(lambda x: len(x) == 1)
                             clustered_df = clustered_df.groupby(cluster_cols).filter(lambda x: len(x) >= 2)
@@ -960,8 +934,10 @@ def evaluate_final_dataset(test_dfs_l, val_dfs_l, run_path, split_names, split_c
                             if col in numeric_cols:
                                 numeric_cols.remove(col)
                         cluster_aggregate_df = clustered_df.groupby(cluster_cols)[numeric_cols].mean()
+                        if sub_df_ind == 'All':
+                            cluster_aggregate_df.to_csv(run_path + f'clustered/csv/1_clustered_{splitted_n}_{year}.csv')
 
-                        #calculate additional stuff
+                        # calculate additional stuff
                         add_df = combined_df2[cluster_cols + ['households']].copy()
                         clusters = add_df[cluster_cols].value_counts().reset_index()
                         clusters.columns = cluster_cols + ['clusters']
@@ -969,70 +945,90 @@ def evaluate_final_dataset(test_dfs_l, val_dfs_l, run_path, split_names, split_c
                         hh.columns = cluster_cols + ['households sum']
                         cluster_aggregate_df = pd.merge(cluster_aggregate_df, clusters, on=cluster_cols, how='left')
                         cluster_aggregate_df = pd.merge(cluster_aggregate_df, hh, on=cluster_cols, how='left')
-                        cluster_aggregate_df = cluster_aggregate_df.reset_index()
-                        combined_aggregate_l += [cluster_aggregate_df, unclustered_df, clustered_df]
-                        combined_aggregate_names_l += [f"{sub_df_ind} {splitted_n} clustered {distance}km",
-                                                       f"{sub_df_ind} {splitted_n} not in cluster {distance}km",
-                                                       f"{sub_df_ind} {splitted_n} in cluster {distance}km"]
-                        visualizations.plot_DBSCAN(clustered_df, run_path + 'clustered/dbscan/', f"DBSCAN {sub_df_ind} {splitted_n} {'clustered'} {distance}km")
 
-                        #calculate metrics
+                        if sub_df_ind == 'All':
+                            cluster_aggregate_df.to_csv(run_path + f'clustered/csv/2_clustered_{splitted_n}_{year}.csv')
+                        cluster_aggregate_df = cluster_aggregate_df.reset_index()
+                        if sub_df_ind == 'All':
+                            cluster_aggregate_df.to_csv(run_path + f'clustered/csv/3_clustered_{splitted_n}_{year}.csv')
+
+                        if distance in [0.5, 1, 2, 4, 6, 8, 10]:
+                            combined_aggregate_l += [cluster_aggregate_df, unclustered_df, clustered_df]
+                            combined_aggregate_names_l += [f"{sub_df_ind} {splitted_n} clustered {distance}km",
+                                                           f"{sub_df_ind} {splitted_n} not in cluster {distance}km",
+                                                           f"{sub_df_ind} {splitted_n} in cluster {distance}km"]
+                            # visualizations.plot_DBSCAN(clustered_df, run_path + 'clustered/dbscan/',
+                            #                            f"DBSCAN {sub_df_ind} {splitted_n} {'clustered'} {distance}km")
+
+                        # calculate metrics
                         if f"distance" not in df_dict:
                             df_dict[f"distance"] = []
                         if sub_df_ind == 'All':
                             df_dict[f"distance"].append(distance)
-                        for name, df in zip(['Clustered', 'Out of Cluster', 'In Cluster'], [cluster_aggregate_df, unclustered_df, clustered_df]):
+                        for name, df in zip(['Clustered', 'Out of Cluster', 'In Cluster'],
+                                            [cluster_aggregate_df, unclustered_df, clustered_df]):
                             if f"{sub_df_ind} {name}{year} Size" not in df_dict:
                                 df_dict[f"{sub_df_ind} {name}{year} Size"] = []
                             df_dict[f"{sub_df_ind} {name}{year} Size"].append(len(df))
                             if f"{sub_df_ind} {name}{year} RMSE" not in df_dict:
                                 df_dict[f"{sub_df_ind} {name}{year} RMSE"] = []
-                            df_dict[f"{sub_df_ind} {name}{year} RMSE"].append(((df['Prediction'] - df['Actual']) ** 2).mean() ** .5)
+                            df_dict[f"{sub_df_ind} {name}{year} RMSE"].append(
+                                ((df['Prediction'] - df['Actual']) ** 2).mean() ** .5)
                             if f"{sub_df_ind} {name}{year} Corr" not in df_dict:
                                 df_dict[f"{sub_df_ind} {name}{year} Corr"] = []
                             numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-                            df_dict[f"{sub_df_ind} {name}{year} Corr"].append(df[numeric_cols].corr()['Actual']['Prediction'])
-                            #how big are differences inside of clusters (Actual and Prediction) - Can the prediction come close to the actual?
+                            df_dict[f"{sub_df_ind} {name}{year} Corr"].append(
+                                df[numeric_cols].corr()['Actual']['Prediction'])
+                            # how big are differences inside of clusters (Actual and Prediction) - Can the prediction come close to the actual?
                             if name == 'In Cluster':
                                 if f"Actual {sub_df_ind} {name}{year} Mean(STD)" not in df_dict:
                                     df_dict[f"Actual {sub_df_ind} {name}{year} Mean(STD)"] = []
-                                df_dict[f"Actual {sub_df_ind} {name}{year} Mean(STD)"].append(df.groupby(cluster_cols)['Actual'].std().mean())
+                                df_dict[f"Actual {sub_df_ind} {name}{year} Mean(STD)"].append(
+                                    df.groupby(cluster_cols)['Actual'].std().mean())
                                 if f"Prediction {sub_df_ind} {name}{year} Mean(STD)" not in df_dict:
                                     df_dict[f"Prediction {sub_df_ind} {name}{year} Mean(STD)"] = []
-                                df_dict[f"Prediction {sub_df_ind} {name}{year} Mean(STD)"].append(df.groupby(cluster_cols)['Prediction'].std().mean())
-                            #how big are differences between clusters in different years (Actual and Prediction) - Can the prediction come close to the actual?
+                                df_dict[f"Prediction {sub_df_ind} {name}{year} Mean(STD)"].append(
+                                    df.groupby(cluster_cols)['Prediction'].std().mean())
+                            # how big are differences between clusters in different years (Actual and Prediction) - Can the prediction come close to the actual?
                             if name == 'Clustered' and splitted_n == 'location and year':
                                 if f"Actual {sub_df_ind} {name}{year} Mean(STD) between years" not in df_dict:
                                     df_dict[f"Actual {sub_df_ind} {name}{year} Mean(STD) between years"] = []
-                                df_dict[f"Actual {sub_df_ind} {name}{year} Mean(STD) between years"].append(df.groupby('clustered')['Actual'].std().mean())
+                                df_dict[f"Actual {sub_df_ind} {name}{year} Mean(STD) between years"].append(
+                                    df.groupby('clustered')['Actual'].std().mean())
                                 if f"Prediction {sub_df_ind} {name}{year} Mean(STD) between years" not in df_dict:
                                     df_dict[f"Prediction {sub_df_ind} {name}{year} Mean(STD) between years"] = []
-                                df_dict[f"Prediction {sub_df_ind} {name}{year} Mean(STD) between years"].append(df.groupby('clustered')['Prediction'].std().mean())
+                                df_dict[f"Prediction {sub_df_ind} {name}{year} Mean(STD) between years"].append(
+                                    df.groupby('clustered')['Prediction'].std().mean())
 
-                #save these statistics and create plots
+                # save these statistics and create plots
                 stats_df = pd.DataFrame(df_dict)
                 for name3 in ['Clustered', 'Out of Cluster', 'In Cluster']:
-                    stats_df[f'U vs U+R size diff {name3}'] = stats_df[f'U+R {name3} Size'] - stats_df[f'U {name3} Size']
-                stats_df.to_csv(os.path.join(run_path + 'clustered/', f"{splitted_n}{year} Clustered stats.csv"), index=False)
-                color_keywords = ['All', 'U', 'R', 'U+R', 'R+U']
+                    stats_df[f'U vs U+R size diff {name3}{year}'] = stats_df[f'U+R {name3}{year} Size'] - stats_df[
+                        f'U {name3}{year} Size']
+                stats_df.to_csv(os.path.join(run_path + 'clustered/', f"{splitted_n}{year} Clustered stats.csv"),
+                                index=False)
+                color_keywords = ['All', 'U', 'R', 'U+R']
+                #, 'R+U']
                 linestyle_keywords = ['Clustered', 'Out of Cluster', 'In Cluster']
-                for name2 in ['Size', 'RMSE', 'Corr', 'In Cluster Mean(STD)', 'Clustered Mean(STD) between years', 'U vs U+R size diff']:
+                for name2 in ['Size', 'RMSE', 'Corr', 'In Cluster Mean(STD)', 'Clustered Mean(STD) between years',
+                              'U vs U+R size diff']:
+                    add_linestyle_to_color_keywords = True
                     if name2 == 'U vs U+R size diff':
                         color_keywords = False
+                        add_linestyle_to_color_keywords = False
                     cols = [c for c in stats_df.columns if name2 in c]
                     if name2 == 'In Cluster Mean(STD)' or name2 == 'Clustered Mean(STD)':
                         linestyle_keywords = ['Actual', 'Prediction']
                     if cols:
                         visualizations.plot_dataframe(stats_df, 'distance', cols, run_path + 'clustered/',
-                                                  f"{splitted_n}", name2, label_reduce=name2,
+                                                      f"{splitted_n}", name2, label_reduce=name2,
                                                       color_keywords=color_keywords,
-                                                      linestyle_keywords=linestyle_keywords,
-                                                      add_linestyle_to_color_keywords=True)
+                                                      linestyle_keywords=linestyle_keywords)
 
-        #create scatterplots
+        # create scatterplots
         for name, df in zip(names + combined_aggregate_names_l,
                             dfs + combined_aggregate_l):
-            #make pandas warning (setting value on copy vs view) go away
+            # make pandas warning (setting value on copy vs view) go away
             df = df.copy()
             df['Error'] = df['Prediction'] - df['Actual']
             df['Absolute Error'] = df['Error'].abs()
@@ -1043,19 +1039,18 @@ def evaluate_final_dataset(test_dfs_l, val_dfs_l, run_path, split_names, split_c
                 path = run_path + 'moz/'
             elif 'adm' in name:
                 path = run_path + 'adm/'
-            if name not in ['Val: different Split Models', 'Test: all Models', 'Val + Test Mean: different Split Models']:
+            if 'different Split Models' in name:
+                split_col_sdf = split_col
+                sub_df = df[["Actual", "Prediction", split_col_sdf]]
+            else:
                 split_col_sdf = False
                 sub_df = df[["Actual", "Prediction"]]
-            else:
-                split_col_sdf = split_col
-                if name == 'Test: all Models':
-                    split_col_sdf = 'split model'
-                sub_df = df[["Actual", "Prediction", split_col_sdf]]
             # logger.debug('Sub df before Scatterpot %s \n%s', name, sub_df)
             if len(sub_df) > 2:
-                beta, alpha, pearson_corr, rmse, nrmse = visualizations.scatterplotRegressionMultiInputs(sub_df, path, file_name=name,
-                                                                multidataset_col=split_col_sdf)
-                if not 'cluster' in name:# or 'clustered' in name and ('2km' in name or '3km' in name or '4km' in name or '5km' in name):
+                beta, alpha, pearson_corr, rmse, nrmse = visualizations.scatterplotRegressionMultiInputs(sub_df, path,
+                                                                                                         file_name=name,
+                                                                                                         multidataset_col=split_col_sdf)
+                if not 'cluster' in name:  # or 'clustered' in name and ('2km' in name or '3km' in name or '4km' in name or '5km' in name):
                     df.to_csv(run_path + 'csv/' + name + '.csv', index=False)
                     for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse"],
                                      [beta, alpha, pearson_corr, rmse, nrmse]):
@@ -1063,21 +1058,21 @@ def evaluate_final_dataset(test_dfs_l, val_dfs_l, run_path, split_names, split_c
                 elif 'cluster' in name:
                     df.to_csv(run_path + 'clustered/csv/' + name + '.csv', index=False)
             if "Pred Original Data" in df.columns and cfg.report_original_data:
-                if name not in ['Val: different Split Models', 'Test: all Models', 'Val + Test Mean: different Split Models']:
+                if 'different Split Models' in name:
+                    split_col_sdf = split_col
+                    sub_df = df[["Actual Original Data", "Pred Original Data", split_col_sdf]]
+                else:
                     split_col_sdf = False
                     sub_df = df[["Actual Original Data", "Pred Original Data"]]
-                else:
-                    split_col_sdf = split_col
-                    if name == 'Test: all Models':
-                        split_col_sdf = 'split model'
-                    sub_df = df[["Actual", "Prediction", split_col_sdf]]
+
                 if len(sub_df) > 0:
                     beta, alpha, pearson_corr, rmse, nrmse = visualizations.scatterplotRegressionMultiInputs(sub_df,
-                                                                    path, file_name=name + " Original Data",
-                                                                    multidataset_col=split_col_sdf)
-                    for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse"],
-                                     [beta, alpha, pearson_corr, rmse, nrmse]):
-                        eval_d[f"{name} {na} Original Data"] = v
+                                                                                                         path,
+                                                                                                         file_name=name + " Original Data",
+                                                                                                         multidataset_col=split_col_sdf)
+                for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse"],
+                                 [beta, alpha, pearson_corr, rmse, nrmse]):
+                    eval_d[f"{name} {na} Original Data"] = v
     else:
         raise NotImplementedError("Overall evaluation of a categorical model is not implemented right now")
     return eval_d
@@ -1148,14 +1143,16 @@ def visualize_augmented_images(augmentation_d, train_ds, augmented_images_path):
 
 def main():
     if cfg.test_mode:
-        logger.warning('Are you sure you want to run in test mode? Note: If using a really low amount of data defined in'
-                       ' test_mode, it is not guaranteed that there will be all splits and an error might occur')
+        logger.warning(
+            'Are you sure you want to run in test mode? Note: If using a really low amount of data defined in'
+            ' test_mode, it is not guaranteed that there will be all splits and an error might occur')
         input('Press a key to continue...')
     logger.info('Using following test table (cfg.splitn_labeld_imgp_augmentation_dimension_l)')
     for i in cfg.splitn_labeld_imgp_augmentation_dimension_l:
         logger.info(i)
     # print('%s', list(cfg.splitn_labeld_imgp_augmentation_dimension_l))
-    for (split_col, [label_name_in, label_d], img_path, augmentation_d, dim) in cfg.splitn_labeld_imgp_augmentation_dimension_l:
+    for (split_col, [label_name_in, label_d], img_path, augmentation_d,
+         dim) in cfg.splitn_labeld_imgp_augmentation_dimension_l:
         label_name = label_name_in[:-1]
         logger.info('modelling water supply %s %s %s', label_name, 'type', cfg.type_m)
         # Import paths I
@@ -1169,7 +1166,8 @@ def main():
 
         logger.info('heigh, width = %s (False meaning max)', dim)
         if not dim:
-            logger.warning(f'This model assumes that you have preprocessed images, which need to have the exact same size')
+            logger.warning(
+                f'This model assumes that you have preprocessed images, which need to have the exact same size')
             height = False
             width = False
         else:
@@ -1182,12 +1180,12 @@ def main():
             height = 100
             width = 100
             logger.warning(f"You are in test mode! Change in config for real runs! epochs = {epochs}, image height and"
-                          f"width capped to {height} {width}")
+                           f"width capped to {height} {width}")
 
         # create new folders for run files
         train_history_path, run_path, modelcheckpoint_p, augmented_images_path, run_name = \
             create_run_folders(augmentation_d, img_path, prj_path, cfg.trainHistory_subname,
-                               label_name_in, split_col, height, width)
+                               label_name_in, split_col, height, width, test_mode=cfg.test_mode)
 
         # load labels and class_weights from file (or calculate later one)
         split_dfs, test_df, labels_df, label_mapping, add_params, scaler = \
@@ -1196,7 +1194,7 @@ def main():
                         **label_d)
         # add_params['img height'] = height
         # add_params['img width'] = width
-        #load shape
+        # load shape
         file = split_dfs[0]['path'].iloc[0]
         arr = gu.load_geotiff(file, height=height, width=width, channel_l=cfg.channels, only_return_array=True)
         input_shape = arr.shape
@@ -1211,18 +1209,10 @@ def main():
             num_labels = 1
             class_weights = False
 
+        split_dfs = [(spdf[split_col].iloc[0], spdf) for spdf in split_dfs]
+        # sort by name
+        split_dfs = list(sorted(split_dfs, key=lambda x: x[0]))
 
-        # create some label visualisations
-        # create_label_visualizations(run_path, labels_df, test_df, label_name, split_col)
-
-        split_names = [spdf[split_col].iloc[0] for spdf in split_dfs]
-        split_names = list(sorted(split_names))
-        if cfg.dont_use_crossval:
-            index = cfg.dont_use_crossval
-            if cfg.dont_use_crossval is True:
-                index = 1
-            split_names = split_names[:index]
-        logger.debug('final split names %s', split_names)
         run_summary_splits_f = os.path.join(train_history_path, 'run_summary_splits' + label_name_in + '.csv')
         run_summary_f = os.path.join(train_history_path, 'run_summary' + label_name_in + '.csv')
         run_summary_overall_f = os.path.join(cfg.prj_folder, cfg.trainHistory_subname, 'run_summary' + '.csv')
@@ -1241,20 +1231,51 @@ def main():
                    'Train, val, test mode': cfg.dont_use_crossval,
                    'img height': height, 'img width': width, 'label name': label_name,
                    **augmentation_d, **label_d}
-        for k,v in add_rep.items():
+        for k, v in add_rep.items():
             logger.info(f'{k}: {v}')
-        for split_nr, split_name in enumerate(split_names):
-            add_rep['split'] = split_name
+
+
+        test_nr = 0
+        val_nr = 1
+        for split_nr in enumerate(split_dfs):
+            # use statistically optimal splits
+            if cfg.dont_use_crossval:
+                # create scores for best represented splits by means of mean and std of the data and assign test and
+                # validation splits with lowest deviation of data set
+                scores = hu.statistical_weighted_test_set(pd.concat(split_dfs, ignore_index=True), split_col,
+                                                          label_name)
+                test_df = scores[0][2]
+                model_name = scores[0][0]
+                validation_df = scores[1][2]
+                val_name = scores[1][0]
+                # drop validation and test splits and concat the rest to train_df
+                train_dfs = [spl_df[1] for spl_df in split_dfs if spl_df[0] != val_name and spl_df[0] != model_name]
+            else:
+                validation_df = split_dfs[val_nr][1]
+                test_df = split_dfs[test_nr][1]
+                model_name = split_dfs[test_nr][0]
+                val_name = split_dfs[val_nr][0]
+                # drop validation and test splits and concat the rest to train_df
+                train_dfs = [spl_df[1] for spl_df in split_dfs if spl_df[0] != val_name and spl_df[0] != model_name]
+            train_df = pd.concat(train_dfs, ignore_index=True)
+
+            add_rep['test split'] = model_name
+            add_rep['validation split'] = val_name
             logger.info('Test mode (images) %s', cfg.test_mode)
             logger.info('input path %s', img_path)
-            logger.info('Validation split %s', split_name)
-            logger.info('training on %s', [spldf[split_col].iloc[0] for spldf in split_dfs if
-                                           spldf[split_col].iloc[0] != split_name])
-            validation_df = split_dfs[split_nr]
+            logger.info('Validation split %s', val_name)
+            logger.info('Test split %s', model_name)
+            logger.info('training on %s',
+                        [spl_df[0] for spl_df in split_dfs if spl_df[0] != val_name and spl_df[0] != model_name])
             logger.debug(validation_df.head())
 
-            train_df = pd.concat(split_dfs[0:split_nr] + split_dfs[split_nr + 1:])
-            modelcheckpoint_path = modelcheckpoint_p + f'chkpt_{split_name}'
+            # add +1 to test and val nr for next iteration
+            val_nr += 1
+            if val_nr == len(split_dfs):
+                val_nr = 0
+            test_nr += 1
+
+            modelcheckpoint_path = modelcheckpoint_p + f'chkpt_{model_name}'
             if os.path.exists(run_summary_splits_f):
                 run_summary_splits_df = pd.read_csv(run_summary_splits_f)
             else:
@@ -1266,7 +1287,7 @@ def main():
                     logger.warning("Test mode is active! Your dataset is significantly shorter")
                 # logger.info('aug_key, augmentation_d %s \n %s', aug_key, augmentation_d)
                 # for spldf in split_dfs[0:split_nr] + split_dfs[split_nr + 1:]:
-                # logger.debug(f'Val split {split_nr} {split_name} labels:')
+                # logger.debug(f'Val split {split_nr} {model_name} labels:')
                 if cfg.type_m == 'categorical':
                     logger.info('class weigths', class_weights)
                     logger.info(label_mapping)
@@ -1302,28 +1323,28 @@ def main():
                     metrics_l.append(m())
                 if cfg.type_m == 'categorical':
                     metrics_l.append(tfa.metrics.F1Score(num_classes=num_labels,
-                          average='micro'))
+                                                         average='micro'))
                 model = model_loader(num_labels, cfg.type_m, input_shape, **augmentation_d)
                 # if cfg.load_model_weights:
-                #     logger.warning(f"This has not been adjusted to split stuff and only {split_name} will be"
+                #     logger.warning(f"This has not been adjusted to split stuff and only {model_name} will be"
                 #                   f"evaluated")
                 #     input("Are you sure you want to continue?")
-                #     logger.info('Loading model from', cfg.load_model_weights + f'chkpt_{split_name}')
+                #     logger.info('Loading model from', cfg.load_model_weights + f'chkpt_{model_name}')
                 #     # model = tf.keras.models.load_model(cfg.load_model_weights)
-                #     model.load_weights(cfg.load_model_weights + f'chkpt_{split_name}')
+                #     model.load_weights(cfg.load_model_weights + f'chkpt_{model_name}')
                 #     logger.debug('Predicting with loaded model', model)
                 #     random_dic = \
                 #         evaluate_dataset(model, test_ds, steps_per_epoch_test, run_path, label_mapping,
-                #                         add_params, scaler, label_d, split_names, test_df, {},
+                #                         add_params, scaler, label_d, model_names, test_df, {},
                 #                          add_name='_loded_model')
                 #     logger.debug('returned from create_vis')
                 ###Define Parameters for run
                 optimizer = optimizer_loading()
                 callbacks_l = callback_loader(run_path, modelcheckpoint_path, metrics_l[0])
 
-                model.compile(optimizer=optimizer, loss=loss, metrics=metrics_l)#, run_eagerly=True)
+                model.compile(optimizer=optimizer, loss=loss, metrics=metrics_l)  # , run_eagerly=True)
                 # Load weights
-                #buggy - don't know why (works without by name for same amount of classes/regression
+                # buggy - don't know why (works without by name for same amount of classes/regression
                 # if cfg.load_model_weights:
                 #     model = model.load_weights(cfg.load_model_weights)
                 #     print('loaded weights from', cfg.load_model_weights)
@@ -1338,13 +1359,13 @@ def main():
             logger.info('val shape %s', validation_ds.element_spec)
             try:
                 history = model.fit(
-                train_ds,
-                class_weight=class_weights,
-                validation_data=validation_ds,
-                epochs=epochs,
-                callbacks=callbacks_l,
-                steps_per_epoch=steps_per_epoch_train,
-                validation_steps=steps_per_epoch_val)
+                    train_ds,
+                    class_weight=class_weights,
+                    validation_data=validation_ds,
+                    epochs=epochs,
+                    callbacks=callbacks_l,
+                    steps_per_epoch=steps_per_epoch_train,
+                    validation_steps=steps_per_epoch_val)
             except KeyboardInterrupt:
                 history = False
                 pass
@@ -1365,7 +1386,7 @@ def main():
             ###Augmented images
             if cfg.save_augmented_images:
                 visualize_augmented_images(augmentation_d, train_ds, augmented_images_path)
-            #delete cache_p again
+            # delete cache_p again
             if os.path.exists(cache_p):
                 shutil.rmtree(cache_p)
 
@@ -1389,7 +1410,7 @@ def main():
                             history.history['val_' + mn]))
                         additional_reports_d['val ' + mn + ' at break'] = history.history['val_' + mn][-1]
                 # visualize history
-                visualizations.plot_history(history, run_path + split_name, cfg.type_m)
+                visualizations.plot_history(history, run_path + model_name, cfg.type_m)
 
             ###Evaluate model
             # Evaluate the model via the test dataset
@@ -1398,7 +1419,7 @@ def main():
                 model.load_weights(modelcheckpoint_path)
 
             # Save model
-            model.save(os.path.join(run_path, f'Model_{split_name}'), save_format='h5')
+            model.save(os.path.join(run_path, f'Model_{model_name}'), save_format='h5')
 
             if cfg.verbose:
                 logger.info("Evaluating on test data %s", test_ds)
@@ -1412,15 +1433,15 @@ def main():
 
             additional_reports_d, sk_metrics_d, validation_f_df = \
                 evaluate_dataset(model, validation_ds, steps_per_epoch_val, run_path, label_mapping, add_params,
-                            scaler, label_d, split_name, validation_df, additional_reports_d,
-                            evaluate_mode='val')
+                                 scaler, label_d, model_name, validation_df, additional_reports_d,
+                                 evaluate_mode='val')
             additional_reports_d, sk_metrics_d, test_f_df = \
                 evaluate_dataset(model, test_ds, steps_per_epoch_test, run_path, label_mapping, add_params,
-                            scaler, label_d, split_name, test_df, additional_reports_d, label_col_in=label_name)
+                                 scaler, label_d, model_name, test_df, additional_reports_d, label_col_in=label_name)
             val_dfs_l.append(validation_f_df)
             test_dfs_l.append(test_f_df)
-            #write run_summary
-            #cleaning
+            # write run_summary
+            # cleaning
             if not cfg.report_original_data:
                 for k, v in additional_reports_d.items():
                     if 'Original Data' in k:
@@ -1447,11 +1468,12 @@ def main():
         run_summary_splits_df.to_csv(run_summary_splits_f, index=False)
 
         ###Make final evaluation of all models for validation and test predictions,
-        eval_d = evaluate_final_dataset(test_dfs_l, val_dfs_l, run_path, split_names, split_col=split_col,
+        eval_d = evaluate_final_dataset(test_dfs_l, val_dfs_l, run_path, split_col=split_col,
                                         labels_df=labels_df)
 
-        #create overall file
-        del add_rep['split']
+        # create overall file
+        del add_rep['test split']
+        del add_rep['validation split']
         report_final_d = {**add_rep, **eval_d, **add_params}
         report_final_df = pd.DataFrame(report_final_d, index=[0])
         logger.info('final x-val report df\n%s', report_final_df)

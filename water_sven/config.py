@@ -7,7 +7,7 @@ from tensorflow.keras import metrics
 # list of gpus to use
 # (only use 1 GPU!) Otherwise I will kill your process!
 # We all need to calculate on this machine - might get lowered to one, if there are bottlenecks!
-gpus = [0]
+gpus = [0,1,2]
 
 
 ########################################################################################################################
@@ -16,7 +16,7 @@ gpus = [0]
 #handles verbosity of thzooe program (use 1 or above to get feedback!)
 verbose = False
 # 'debug' for debugging, 'info' for a bit verbosity, 'warning' for less verbosity
-logging = 'info'
+logging = 'debug'
 
 
 ########################################################################################################################
@@ -29,8 +29,8 @@ base_folder = '/mnt/datadisk/data/'
 prj_folder = '/mnt/datadisk/data/Projects/water/'
 # train history will be saved in a subfolder of the project path (base_folder + /projects/water/)
 # assign a name according to your group, to separate your results from all others! Create this folder manually!
-trainHistory_subname = 'trainH_XV2/'
-labels_f = prj_folder + '/inputs/water_labels_strat_split.csv'
+trainHistory_subname = 'trainH_XVU/'
+labels_f = prj_folder + '/inputs/water_labels_strat_split3.csv'
 # img_path = '/mnt/datadisk/data/Sentinel2/preprocessed/water_new/'
 # img_path = ['/mnt/datadisk2/preprocessed/R/996x996_c432_fillmean_m2.5_rlocal channel mean_clipvoutlier_normZ_f18977/',]
 img_path = '/mnt/datadisk2/preprocessed/all/996x996_c432_fillmean_m2.5_rlocal channel mean_clipvoutlier_normZ_f31213/'
@@ -44,35 +44,36 @@ tmp_p = '/mnt/datadisk2/tmp/'
 ########################################################################################################################
 #define the split_col to use
 splits_l = [
-    # 'split: out of country all (w TIF)',
-    # 'split: out of country all (w TIF) excluded outlier surveys',
-    # 'split: out of adm1 all (w TIF)',
-    # 'split: out of adm2 all (w TIF) random',
-    'split: out of country year all (w TIF)',
-    'split: out of country year all (w TIF) excluded outlier surveys',
+    # 'split: random urban 2012plus',
+    # 'split: random 10splits urban 2012plus',
+    # 'split: random 10splits urban 2012plus excluded drop surveys (ZAuEG)',
+    # 'split: random 10splits urban 2012plus excluded outlier surveys',
+    # 'split: out of country year urban 2012plus MZ in train',
+    # 'split: out of country year urban 2012plus excluded drop surveys (ZAuEG) MZ in train',
+    # 'split: out of country year urban 2012plus excluded outlier surveys MZ in train',
+    # 'split: out of adm1 year all 2012plus',
+    'split: out of adm2 year all 2012plus',
+    # 'split: out of country all 2012plus MZ in train',
+    # 'split: out of country year all MZ in train',
+    # 'split: out of country year all excluded outlier surveys MZ in train',
+    # 'split: out of country all MZ in test',
+    # 'split: out of country all excluded drop surveys (ZAuEG) MZ in test',
+    # 'split: out of country all excluded outlier surveys MZ in test',
+    # 'split: out of adm1 year all',
+    # 'split: out of adm1 year all excluded drop surveys (ZAuEG)',
+    # 'split: out of adm1 year all excluded outlier surveys',
+    # 'split: out of adm2 year all random',
+    # 'split: out of adm2 year all random excluded drop surveys (ZAuEG)',
+    # 'split: out of adm2 year all random excluded outlier surveys random',
+    # 'split: random all',
+    # 'split: random all excluded drop surveys (ZAuEG)',
+    # 'split: random all excluded outlier surveys random',
+]
 
-    # 'split: out of country urban (w TIF)',
-    # 'split: random urban (w TIF)',
-    # 'split: out of country all (w TIF) excluded outlier surveys',
-    # 'split: out of country year all (w TIF) excluded outlier surveys',
-    # 'split: out of adm1 all (w TIF) excluded outlier surveys',
-    'split: out of adm1 year all (w TIF)',
-    'split: out of adm1 year all (w TIF) excluded outlier surveys',
-    'split: out of adm2 year all (w TIF)',
-    'split: out of adm2 year all (w TIF) excluded outlier surveys',
-    # 'split: out of adm1 year all (w TIF) excluded outlier surveys random',
-    # 'split: out of adm2 all (w TIF) random',
-    # 'split: out of adm2 all (w TIF) excluded outlier surveys random',
-    # 'split: random all (w TIF)', 'split: random all (w TIF) excluded outlier surveys',
-    # 'split: random rural (w TIF) excluded outlier surveys',
-    # 'split: random urban (w TIF) excluded outlier surveys',
-    # 'split: random without <2015 all (w TIF) excluded outlier surveys',
-            ]
-
-# define the label column names and specify a normalization, upper and lower std multiples to drop outliers
+# define the label column names with an appended number and specify a normalization, upper and lower std multiples to drop outliers
 # (refer to load_labels() in water_w_regression.py for more information)
 label_d = [
-    'PCA w_location_weighting all2', {'label normalization': 'Z',}
+    'PCA w_location_weighting urban2', {'label normalization': 'Z',}
     # 'PCA w_weighting urban3': {'label normalization': 'Z',
     # 'max std': 2.5, 'drop min max value': False,
     # 'min std': -2.5},
@@ -82,6 +83,7 @@ label_d = [
 ### Image Augmentation settings
 # (IDG is slowing down like crazy and multiple augmentations for the same image create
 # heavy distortions: only zoom and horizontal flip seem to work well)
+# in tensorflow 2.8, tensorflow 2.9+ not working right now
 # accuracy decreases with to many Augmentation settings, though - why?
 # augmentation only gets applied to train data
 IDG_augmentation_settings_d = {}
@@ -117,11 +119,11 @@ channels = False
 #                                  Basic neural network parameters
 ########################################################################################################################
 ### Maximum amount of epochs
-epochs = 100
+epochs = 1
 ### Learning rate (to start with - might get dynamically lowered with callback options)
 lr = 0.0001
 # How many pictures are used to train before readjusting weights
-batch_size = 32
+batch_size = 16
 ### The model to use
 # available are vgg16/19, resnet50/152, inceptionv3, xception, densnet121/201
 model_name = 'vgg19'
@@ -174,7 +176,7 @@ early_stopping = (True, 8)
 
 
 #use an int to limit data on that amount or False to use full dataset (and not testing mode)
-test_mode = 1000
+test_mode = False
 #only uses the first split for validation (way faster - for hyperparameter optimization and co)
 dont_use_crossval = False
 #set to True if denormalized (etc.) data should be reported

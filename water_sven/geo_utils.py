@@ -4,6 +4,7 @@ import warnings
 import os
 import math
 import numpy as np
+from sklearn.cluster import DBSCAN
 
 #own imports
 
@@ -113,3 +114,89 @@ def load_geotiff(file, height, width, channel_l=False, replace_nan_value=False, 
         return array, nulls, profile
 
 
+def cluster_coordinates(df, eps, x='LONGNUM', y='LATNUM', min_samples=2, reassign_noise=False,
+                        assign_noise_to_groups=None):
+    """
+    Clusters geographic coordinates using the DBSCAN algorithm.
+
+    Args:
+        df (pandas.DataFrame): DataFrame containing the coordinates.
+        eps (float): The maximum distance between two samples for one to be considered as in the neighborhood of the other.
+        x (str): Column name for longitude. Default is 'LONGNUM'.
+        y (str): Column name for latitude. Default is 'LATNUM'.
+        min_samples (int): The number of samples in a neighborhood for a point to be considered as a core point.
+        reassign_noise (bool): If true, assign independent cluster values to noise points. Default is False.
+        assign_noise_to_groups (int): If specified, randomly assign noise points to groups of this size. Default is None.
+
+    Returns:
+        pandas.DataFrame: DataFrame with an added 'clustered' column and 'clustered: unique non-clustered' column.
+        'clustered' contains the cluster labels assigned by DBSCAN, 'clustered: unique non-clustered' contains unique
+        cluster values for noise points and the original clusters if reassign_noise is True, and grouped cluster values
+        for noise points if assign_noise_to_groups is specified.
+    """
+    # Extract longitude and latitude from DataFrame
+    coordinates = df[[x, y]].values
+
+    # Convert eps from kilometers to radians for use by haversine
+    kms_per_radian = 6371.0088
+    eps_radians = eps / kms_per_radian
+
+    # Run DBSCAN
+    db = DBSCAN(eps=eps_radians, min_samples=min_samples, algorithm='ball_tree', metric='haversine').fit(
+        np.radians(coordinates))
+
+    # Add cluster labels to DataFrame
+    df['clustered'] = db.labels_
+
+    if reassign_noise:
+        # Make a copy of cluster labels
+        unique_cluster_labels = db.labels_.copy()
+
+        # Find the maximum cluster label (ignoring noise labeled as -1)
+        max_cluster_label = max(unique_cluster_labels)
+
+        # Identify noise points
+        noise_points = unique_cluster_labels == -1
+
+        # Assign each noise point a unique cluster value, starting from max_cluster_label + 1
+        unique_cluster_labels[noise_points] = range(-1, -1 - sum(noise_points), -1)
+
+        df['clustered: unique non-clustered'] = unique_cluster_labels
+
+    if assign_noise_to_groups is not None:
+        # Make a copy of cluster labels
+        grouped_cluster_labels = db.labels_.copy()
+
+        # Identify noise points
+        noise_points = np.where(grouped_cluster_labels == -1)[0]
+
+        # Shuffle the noise points
+        np.random.shuffle(noise_points)
+
+        # Assign each group of noise points a unique cluster value
+        label = 0
+        for i in range(0, len(noise_points), assign_noise_to_groups):
+            label -= 1
+            grouped_cluster_labels[noise_points[i:i + assign_noise_to_groups]] = label
+
+        df['clustered: grouped non-clustered'] = grouped_cluster_labels
+
+    return df
+
+
+
+def haversine(lat1, lon1, lat2, lon2):
+    """
+    Calculate the great circle distance in kilometers between two points
+    on the earth (specified in decimal degrees)
+    """
+    # convert decimal degrees to radians
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+
+    # haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    c = 2 * asin(sqrt(a))
+    r = 6371  # Radius of earth in kilometers. Use 3956 for miles. Determines return value units.
+    return c * r
