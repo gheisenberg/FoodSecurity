@@ -158,6 +158,6 @@ def statistical_weighted_test_set(df, split_col_n, value_col):
     scores = []
     for spl in df[split_col_n].unique():
         scores.append((spl, abs(df[value_col].mean() - df[df[split_col_n] == spl][value_col].mean()) + abs(
-            df[value_col].std() - df[df[split_col_n] == spl][value_col].std())), df[df[split_col_n] == spl])
+            df[value_col].std() - df[df[split_col_n] == spl][value_col].std()), df[df[split_col_n] == spl]))
     scores = sorted(scores, key=lambda x: x[1])
     return scores

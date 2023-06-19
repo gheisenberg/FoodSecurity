@@ -16,7 +16,7 @@ gpus = [0,1,2]
 #handles verbosity of thzooe program (use 1 or above to get feedback!)
 verbose = False
 # 'debug' for debugging, 'info' for a bit verbosity, 'warning' for less verbosity
-logging = 'debug'
+logging = 'info'
 
 
 ########################################################################################################################
@@ -29,7 +29,7 @@ base_folder = '/mnt/datadisk/data/'
 prj_folder = '/mnt/datadisk/data/Projects/water/'
 # train history will be saved in a subfolder of the project path (base_folder + /projects/water/)
 # assign a name according to your group, to separate your results from all others! Create this folder manually!
-trainHistory_subname = 'trainH_XVU/'
+trainHistory_subname = 'trainH_XVU2/'
 labels_f = prj_folder + '/inputs/water_labels_strat_split3.csv'
 # img_path = '/mnt/datadisk/data/Sentinel2/preprocessed/water_new/'
 # img_path = ['/mnt/datadisk2/preprocessed/R/996x996_c432_fillmean_m2.5_rlocal channel mean_clipvoutlier_normZ_f18977/',]
@@ -44,7 +44,6 @@ tmp_p = '/mnt/datadisk2/tmp/'
 ########################################################################################################################
 #define the split_col to use
 splits_l = [
-    # 'split: random urban 2012plus',
     # 'split: random 10splits urban 2012plus',
     # 'split: random 10splits urban 2012plus excluded drop surveys (ZAuEG)',
     # 'split: random 10splits urban 2012plus excluded outlier surveys',
@@ -52,8 +51,9 @@ splits_l = [
     # 'split: out of country year urban 2012plus excluded drop surveys (ZAuEG) MZ in train',
     # 'split: out of country year urban 2012plus excluded outlier surveys MZ in train',
     # 'split: out of adm1 year all 2012plus',
-    'split: non overlapping urban 2012plus',
-    'split: random urban 2012plus',
+    'split: random urban 2012plus excluded drop surveys (ZAuEG)',
+    'split: non overlapping year urban 2012plus excluded drop surveys (ZAuEG)',
+    # 'split: random urban 2012plus excluded drop surveys (ZAuEG)',
     # 'split: out of country all 2012plus MZ in train',
     # 'split: out of country year all MZ in train',
     # 'split: out of country year all excluded outlier surveys MZ in train',
@@ -102,10 +102,12 @@ dim_l = False #[50, 100, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 
 #     ['split: out of country all (w TIF)', ['PCA w_location_weighting all2', {'label normalization': 'Z',}], img_path, IDG_augmentation_settings_d, dim_l],
 # ]
 # can also be created like this (e.g.; be careful though!):
+# splitn_labeld_imgp_augmentation_dimension_l = \
+#     list(zip([splits_l[0] for dim in dim_l], [label_d for dim in dim_l], [img_path for dim in dim_l],
+#          [IDG_augmentation_settings_d for dim in dim_l], dim_l))
 splitn_labeld_imgp_augmentation_dimension_l = \
-    list(zip(splits_l, [label_d for i in splits_l], [img_path for i in splits_l],
-         [IDG_augmentation_settings_d for i in splits_l], [dim_l for i in splits_l]))
-
+    list(zip(splits_l, [label_d for spl in splits_l], [img_path for spl in splits_l],
+         [IDG_augmentation_settings_d for spl in splits_l], [dim_l for spl in splits_l]))
 
 ########################################################################################################################
 #                                       Further dataset parameters

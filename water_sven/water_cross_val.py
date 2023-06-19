@@ -624,7 +624,7 @@ def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0
     visualizations.standard_hist_from_df(labels_df[labels_df['DHSYEAR'] < 2015]['label'], run_path, '',
                                          title_in='Label before 2015')
     visualizations.standard_hist_from_df(labels_df[labels_df['DHSYEAR'] >= 2015]['label'], run_path, '',
-                                         title_in='Label since 2105')
+                                         title_in='Label since 2015')
 
     logger.debug('Input Df')
     logger.debug(labels_df['label'])
@@ -634,8 +634,8 @@ def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0
         spl_l[0].append(test_df[split].iloc[0])
         spl_l[1].append(test_df)
     for st, df in zip(spl_l[0], spl_l[1]):
-        print(st)
-        print(df)
+        logger.debug(st)
+        logger.debug(df)
         if len(df) / len(labels_df) <= 0.08 or len(df) / len(labels_df) >= 0.22:
             logger.warning('%s df\n %s', st, df)
             logger.warning(f'CAUTION!!!: DF has critically low or high amount of values {len(df) / len(labels_df)} \n')
@@ -1242,8 +1242,8 @@ def main():
             if cfg.dont_use_crossval:
                 # create scores for best represented splits by means of mean and std of the data and assign test and
                 # validation splits with lowest deviation of data set
-                scores = hu.statistical_weighted_test_set(pd.concat(split_dfs, ignore_index=True), split_col,
-                                                          label_name)
+                scores = hu.statistical_weighted_test_set(pd.concat([spl_df[1] for spl_df in split_dfs],
+                                                                    ignore_index=True), split_col, label_name)
                 test_df = scores[0][2]
                 model_name = scores[0][0]
                 validation_df = scores[1][2]
