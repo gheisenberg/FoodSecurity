@@ -206,7 +206,7 @@ def main():
                     shutil.rmtree(outpath)
                 os.mkdir(outpath)
                 if geotiff_normalization == 'Z' or geotiff_normalization == 'Z combined':
-                    if cfg.load_means_stds_f:
+                    if cfg.load_means_stds_f and not cfg.overwrite:
                         print('Loading means and stds')
                         with open(cfg.load_means_stds_f, 'rb') as file_pi:
                             (means, stds) = pickle.load(file_pi)

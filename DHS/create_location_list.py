@@ -1,8 +1,6 @@
 import os
-
 import pandas as pd
-
-import dhs_f
+import redundant_code.dhs_f as dhs_f
 import fnmatch
 import fiona
 import csv
@@ -16,13 +14,13 @@ min_dhs_version = False
 #only extracts locations where these survey records are available #'HR' = household recode
 # additional_file = 'HR'
 ###Paths
-dhs_path = r"/mnt/datadisk/data/surveys/DHS_raw_data/"
+dhs_path = r"/mnt/datadisk/data/surveys/DHS_final_raw_data/"
 dhs_extras_p = r"/mnt/datadisk/data/surveys/DHS_info/"
 projects_p = r"/mnt/datadisk/data/Projects/water/inputs/"
-locations_f = projects_p + '/' + 'all_locations_final.csv'
-locations_f_spa = projects_p + '/' + 'SPA_locations.csv'
+locations_f = projects_p + '/' + 'final_all_locations_new.csv'
+locations_f_spa = projects_p + '/' + 'final_SPA_locations.csv'
 
-gaul_locations_f = projects_p + '/' + 'all_locations_gaul.csv'
+#gaul_locations_f = projects_p + '/' + 'all_locations_gaul2.csv'
 
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
@@ -89,24 +87,27 @@ with open(locations_f, 'w') as csvfile:
                                                                                         ge_n + props['SPAID'][-8:]]
                         spamwriter.writerow(row)
 
-                    if props['LATNUM'] == 0 or props['LONGNUM'] == 0:
+                    elif props['LATNUM'] == 0 or props['LONGNUM'] == 0:
                         #print(props['LATNUM'], point[0], props['LONGNUM'], point[1])
                         zero_numbers.append(((props['LATNUM'], props['LONGNUM']), point))
-                    if abs(props['LATNUM'] - point[1]) > 0.01 or abs(props['LONGNUM'] - point[0]) > 0.01:
+                    elif abs(props['LATNUM'] - point[1]) > 0.01 or abs(props['LONGNUM'] - point[0]) > 0.01:
                         #print(props['LATNUM'], point[1], props['LONGNUM'], point[0])
                         wrong.append(((props['LONGNUM'], props['LATNUM']), point))
-
+                    else:
+                        print('something else went wrong')
+                        sys.exit()
+                        
 print('dropped locations with missing gps information (lat or long == 0):', len(zero_numbers), zero_numbers)
 print('dropped unambiguous locations:', len(wrong), wrong)
 
-#load gaul
-all_locations = pd.read_csv(locations_f)
-gaul_locations = pd.read_csv(gaul_locations_f)
-gaul_locations = gaul_locations[['DHSID', 'adm2_code', 'adm2_name',	'adm1_code', 'adm1_name', 'adm0_code',
-                                 'adm0_name']]
-all_locations = pd.merge(all_locations, gaul_locations, on='DHSID', how='outer')
-# print(all_locations)
-print(all_locations.head())
-print('\n\n')
-print(all_locations.describe())
-all_locations.to_csv(locations_f, index=False)
+# #load gaul
+# all_locations = pd.read_csv(locations_f)
+# gaul_locations = pd.read_csv(gaul_locations_f)
+# gaul_locations = gaul_locations[['DHSID', 'adm2_code', 'adm2_name',	'adm1_code', 'adm1_name', 'adm0_code',
+#                                  'adm0_name']]
+# all_locations = pd.merge(all_locations, gaul_locations, on='DHSID', how='outer')
+# # print(all_locations)
+# print(all_locations.head())
+# print('\n\n')
+# print(all_locations.describe())
+# all_locations.to_csv(locations_f, index=False)

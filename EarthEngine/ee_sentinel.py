@@ -43,9 +43,9 @@ from pydrive.files import ApiRequestError
 
 ###Options###
 ##Paths
-# label_csv = '/mnt/datadisk/data/Projects/water/inputs/water_labels.csv'
-label_csv = '/mnt/datadisk/data/Projects/water/inputs/Moz_Grid_Points_10km.csv'
-img_p = '/mnt/datadisk/data/Sentinel2/moz_grid/'
+label_csv = '/mnt/datadisk/data/Projects/water/inputs/final_all_locations_new.csv'
+# label_csv = '/mnt/datadisk/data/Projects/water/inputs/Moz_Grid_Points_10km.csv'
+img_p = '/mnt/datadisk/data/Sentinel2/raw/'
 # img_p = '/mnt/datadisk/data/Sentinel2/moz_grid/'
 #used to debug locally: set to False for actual DL
 testing = False
@@ -62,15 +62,15 @@ min_year = 2012
 #Google stuff
 gdrive_dir_s2 = '1P4FpvICI0S9vRs8mNvHxzqooK7zPGGnP'
 #make sure that you have enough space on disk (parallel-dls*img_size)
-parallel_dls = 150
+parallel_dls = 100
 #wait for 6 hours to complete all tasks and download them
-final_waiting_time = 6
+final_waiting_time = 12
 ###Special Settings
 ##Downloads S2 images for specified country and year at places where there have been surveys
 #use country name or False
-download_country = 'Mozambique'
+download_country = False #'Mozambique'
 #specify year (only active if download country is given)
-download_year = 2018
+download_year = False #2015
 # Paths
 # Path to Label Data
 # csv_dir = csv_path
@@ -207,6 +207,12 @@ def get_image(cluster:pd.Series, urban_radius:int, rural_radius:int, country_cod
         time.sleep(60*5)  # set sleep timer for 5 sec if task is still active
     # print('created', filename, (time.time() - t1)/60)
     print('\n --------\ncreated', status['description'], status['id'], status['state'], (time.time() - t1)/60, 'mins')
+
+    ###Do not download in here. To many browser windows opening!
+    #give some time to catch data
+    # print('Waiting 5 mins for download to start')
+    # time.sleep(60*5)
+    # download_local(img_p, drive)
     return loc
 
 
@@ -241,7 +247,7 @@ def download_local(survey_dir:str, drive):
                     title2 = title[:-4] + '_' + str(count) + '.tif'
                     count += 1
                 print('     dl name', survey_dir + title2)
-                file1.GetContentFile(survey_dir + title)
+                file1.GetContentFile(survey_dir + title2)
                 file1.Delete()
     except ApiRequestError:
         print('file (probably) has already been downloaded!')
@@ -280,6 +286,10 @@ def main(drive):
         df = df[df['DHSYEAR'] >= min_year]
     print('\nDF after manipulating\n', df)
     #make sure it didnt get downloaded yet
+    if df['TIF_name'].iloc[0][-4:] == '.tif':
+        pass
+    else:
+        df['TIF_name'] = df['TIF_name'] + '.tif'
     df['TIF_name'] = df['TIF_name'].apply(lambda x: x if x not in filenames else np.NaN)
     df = df[df['TIF_name'].notna()]
     # print(df["DHSYEAR"])
@@ -295,7 +305,7 @@ def main(drive):
     print('\nFile names and years\n', df[["TIF_name", "DHSYEAR"]])
     if len_clusters > 0:
         for i, (ind, cluster) in enumerate(df.iterrows()):
-            # print(i, cluster, type(cluster))
+            # print(i, type(cluster))
             # print('\n')
             #debugging!
             # get_image(cluster, urban_radius, rural_radius, False, MAX_CLOUD_PROBABILITY,
@@ -363,6 +373,13 @@ if __name__ == "__main__":
         # only works on remote machine
         gauth.LocalWebserverAuth()
         drive = GoogleDrive(gauth)
+
+        # # Cancel all tasks
+        # tasks = ee.batch.Task.list()
+        # # Cancel each task
+        # for task in tasks:
+        #     if task.status()['state'] == 'RUNNING':
+        #         task.cancel()
     else:
         drive = False
     #old stuff

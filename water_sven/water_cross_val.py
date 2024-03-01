@@ -58,6 +58,22 @@ logger.info('tf eager execution %s', tf.executing_eagerly())
 # force channels-first ordering
 K.set_image_data_format('channels_first')
 logger.info('Image data format %s', K.image_data_format())
+# Check if CUDA is available
+logger.info("Is CUDA Available: %s", tf.test.is_built_with_cuda())
+
+# Check if cuDNN can load and list devices
+logger.info("List of Devices: %s", tf.config.list_physical_devices())
+
+# Check cuDNN version
+from tensorflow.python.platform import build_info as tf_build_info
+logger.info("cuDNN Version: %s", tf_build_info.build_info['cudnn_version'])
+
+# from tensorflow.keras.mixed_precision import set_global_policy
+
+#to do: replace tf.float32 with tf.float16/mixed precision
+# set_global_policy('mixed_float16')
+# logger.info('Mixed precision enabled to speed up code')
+
 
 # do not assign complete gpu-memory but grow it as needed
 # allows to run multiple models at once (otherwise whole gpu memory gets allocated/gpu gets blocked)
