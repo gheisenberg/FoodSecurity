@@ -3,6 +3,8 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 from collections import defaultdict, OrderedDict
+from sklearn.model_selection import KFold
+from icecream import ic
 
 
 def final_ds_droping_cols(df_in, drop_meta=False, drop_6_7_y_FS=True, drop_food_help=True, drop_IPC_wo_food_help=False, drop_perc=75, drop_region=True, 
@@ -11,13 +13,13 @@ def final_ds_droping_cols(df_in, drop_meta=False, drop_6_7_y_FS=True, drop_food_
                 use_NAN_amount_and_replace_NANs_in_categorical=False, retain_year=True, retain_month=True, 
                 retain_adm=['adm0_gaul', 'adm1_gaul', 'adm2_gaul'], retain_GEID_init=True, retain_percentage_of_valid_answers=False,
                 drop_single_categorical_cols=True, drop_one_of_double_categorical_cols=True, drop_highly_correlated_cols=False, 
-                drop_data_sets=[], drop_agricultural_cols=False, drop_below_version=False,
+                drop_data_sets=[], drop_agricultural_cols=False, drop_below_version=False, ensure_fold_columns_are_available=True,
                 verbose=3):
     """
     This function retrieves a DataFrame after applying a series of transformations based on the provided parameters.
 
     Args:
-        df (pd.DataFrame): The input DataFrame.
+        df_in (pd.DataFrame): The input DataFrame.
         drop_meta (bool, optional): Whether to drop metadata columns. Defaults to False.
         drop_6_7_y_FS (bool, optional): Whether to drop food security columns for 6-7 years. Defaults to True.
         drop_food_help (bool, optional): Whether to drop food help columns. Defaults to True.
@@ -27,6 +29,7 @@ def final_ds_droping_cols(df_in, drop_meta=False, drop_6_7_y_FS=True, drop_food_
         drop_languages (list, optional): List of languages to drop. Defaults to ['language of interview', 'native language', 'language of questionnaire'].
         IPC_mode (str, optional): The mode of IPC to retain. Defaults to 'mean'.
         drop_20_25_y_FS (bool, optional): Whether to drop food security columns for 20-25 years. Defaults to True.
+        drop_0_1_y_FS (bool, optional): Whether to drop food security columns for 0-1 years (overlaps with 0-2 years). Defaults to True.
         use_short_long_FS_time_spans (str, optional): Whether to use short or long food security time spans. Defaults to 'long'.
         numerical_data (list, optional): List of numerical data to retain. Possible: ['mean', 'median', 'std', 'skewness', 'kurtosis']. Defaults to ['mean', 'std', 'skewness', 'kurtosis'].
         use_NAN_amount_and_replace_NANs_in_categorical (bool, optional): Whether to replace NaNs in categorical data with 0. Defaults to True.
@@ -34,9 +37,14 @@ def final_ds_droping_cols(df_in, drop_meta=False, drop_6_7_y_FS=True, drop_food_
         retain_month (bool, optional): Whether to retain month columns. Defaults to True.
         retain_adm (list, optional): List of administrative divisions to retain. Defaults to ['adm0_gaul', 'adm1_gaul', 'adm2_gaul'].
         retain_GEID_init (bool, optional): Whether to retain initial GEID. Defaults to True.
-        retain_GEID_init (bool, optional): Whether to retain initial GEID. Defaults to True.
+        retain_percentage_of_valid_answers (bool, optional): Whether to retain percentage of valid answers. Defaults to False.
         drop_single_categorical_cols (bool, optional): If True, the function will drop categorical columns with only one category. Default is True. Disregards 'NaN' columns.
         drop_one_of_double_categorical_cols (bool, optional): If True, the function will drop one of the two categorical columns when there are only two categories for a specific feature. The column with fewer non-NaN values will be dropped. Default is True. Disregards 'NaN' columns.
+        ensure_fold_columns_are_available (bool, optional): If True, the function will ensure that the columns 'Meta;' + 'adm0_gaul', 'year' and 'GEID_init' are retained. Default is True.
+        drop_highly_correlated_cols (bool, optional): If True, the function will drop highly correlated columns. Default is False.
+        drop_data_sets (list, optional): List of data sets to drop. Defaults to []. Possible values: ['Meta', 'FS', 'DHS Num', 'DHS Cat', 'Meta one-hot encoding', 'Meta frequency encoding'].
+        drop_agricultural_cols (bool, optional): If True, the function will drop agricultural columns, might be suitable for urban calculations. Default is False.
+        drop_below_version (int, optional): If set, the function will drop all data below the specified version. Default is False.
         verbose (int, optional): Verbosity level. Defaults to 3.
 
     Returns:
@@ -67,16 +75,19 @@ def final_ds_droping_cols(df_in, drop_meta=False, drop_6_7_y_FS=True, drop_food_
     
     if drop_meta:
         retaining_inds = []
-        if retain_year:
+        if retain_year or ensure_fold_columns_are_available:
             retaining_inds.append('year')
         if retain_month:
             retaining_inds.append('month')
-        if retain_GEID_init:
+        if retain_GEID_init or ensure_fold_columns_are_available:
             retaining_inds.append('GEID_init')
         if retain_percentage_of_valid_answers:
             retaining_inds.append('percentage of valid answers')
         if retain_adm:
             retaining_inds += retain_adm
+        if ensure_fold_columns_are_available and 'adm0_gaul' not in retaining_inds:
+            retaining_inds.append('adm0_gaul')
+            
         if not retaining_inds:
             cols = [c for c in df.columns if 'Meta; ' in c]# and not 'year' in c]
         else:
@@ -285,3 +296,50 @@ def drop_highly_correlated_cols_f(df, drop_highly_correlated_cols, verbose):
             print(f'Dropped highly correlated columns: {col}')
             
     return df
+
+
+def fold_generator(data, split_type, n_splits=5, verbose=1):
+    """
+    Generate indices for train and test sets based on the specified split type.
+
+    Parameters:
+    data (DataFrame): The input dataset.
+    split_type (str): The type of split - 'country', 'survey', or 'year'.
+    n_splits (int): Number of splits/folds for the outer cross-validation.
+    verbose (int): Level of verbosity.
+    """
+    if split_type == 'country':
+        split_col = 'Meta; adm0_gaul'
+    elif split_type == 'survey':
+        split_col = 'Meta; GEID_init'
+    elif split_type == 'year':
+        split_col = 'Meta; rounded year'
+        # Ensure 'Meta; rounded year' column is created outside this function or create here based on logic provided
+        data[split_col] = data.groupby('Meta; GEID_init')['Meta; year'].transform(lambda x: round(x.mean()))
+    elif split_type == 'unconditional':
+        kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+        for train_idx, test_idx in kf.split(data):
+            yield data.index[train_idx], data.index[test_idx]
+        return
+    else:
+        raise ValueError(f'Invalid split_type: {split_type}')
+
+    unique_combinations = data[split_col].drop_duplicates().values
+    
+    # Adjust maximum n_splits based on the number of unique combinations
+    if len(unique_combinations) < n_splits or n_splits == -1:
+        n_splits = len(unique_combinations)
+        if verbose:
+            ic(f'Adjusting n_splits to the length of unique combinations ({n_splits}) for', split_type)
+
+    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+    
+    for train_idx, test_idx in kf.split(unique_combinations):
+        train_combinations = unique_combinations[train_idx]
+        test_combinations = unique_combinations[test_idx]
+        
+        train_mask = data[split_col].isin(train_combinations)
+        test_mask = data[split_col].isin(test_combinations)
+
+        # Yielding the indices for train and test sets
+        yield data[train_mask].index, data[test_mask].index
