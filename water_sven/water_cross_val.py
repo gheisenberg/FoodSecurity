@@ -448,8 +448,10 @@ def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0
     visualizations.standard_hist_from_df(labels_df[col], run_path, '', title_in=col)
     visualizations.standard_hist_from_df(labels_df[col], run_path, '', title_in=col + ' wo xlim', xlim=False)
 
-    labels_df = labels_df[['GEID', 'DHSID', 'path', split, col, "households", "adm0_name", "adm1_name", "adm2_name",
-                           "LATNUM", "LONGNUM", "DHSYEAR", "URBAN_RURA"]]
+    cols = ['GEID', 'DHSID', 'path', split, col, "households", "adm0_name", "adm1_name", "adm2_name",
+                           "LATNUM", "LONGNUM", "DHSYEAR", "URBAN_RURA"]
+    cols = [c for c in cols if c in labels_df.columns]
+    labels_df = labels_df[cols]
     labels_df['label'] = labels_df[col]
     # drop all which have no label or no input
     if labels_df[['path', 'label', split]].isnull().any(axis=1).any():
@@ -654,7 +656,7 @@ def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0
         logger.debug(df)
         if len(df) / len(labels_df) <= 0.08 or len(df) / len(labels_df) >= 0.22:
             logger.warning('%s df\n %s', st, df)
-            logger.warning(f'CAUTION!!!: DF has critically low or high amount of values {len(df) / len(labels_df)} \n')
+            logger.warning(f'CAUTION!!!: Split_df has critically low or high amount of values {len(df) / len(labels_df)} \n')
     if len(labels_df['label']) <= break_v:
         logger.warning('WARNING!!!: length of labels is below %s %s %s', break_v, 'len labels', len(labels_df['label']))
         input('Are you sure you want to continue?')

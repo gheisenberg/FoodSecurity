@@ -29,8 +29,8 @@ base_folder = '/mnt/datadisk/data/'
 prj_folder = '/mnt/datadisk/data/Projects/water/'
 # train history will be saved in a subfolder of the project path (base_folder + /projects/water/)
 # assign a name according to your group, to separate your results from all others! Create this folder manually!
-trainHistory_subname = 'trainH_XVU2/'
-labels_f = prj_folder + '/inputs/water_labels_strat_split3.csv'
+trainHistory_subname = 'trainH_sustainbench/'
+labels_f = prj_folder + '/inputs/sustainbench.csv'
 # img_path = '/mnt/datadisk/data/Sentinel2/preprocessed/water_new/'
 # img_path = ['/mnt/datadisk2/preprocessed/R/996x996_c432_fillmean_m2.5_rlocal channel mean_clipvoutlier_normZ_f18977/',]
 img_path = '/mnt/datadisk2/preprocessed/all/996x996_c432_fillmean_m2.5_rlocal channel mean_clipvoutlier_normZ_f31213/'
@@ -51,8 +51,8 @@ splits_l = [
     # 'split: out of country year urban 2012plus excluded drop surveys (ZAuEG) MZ in train',
     # 'split: out of country year urban 2012plus excluded outlier surveys MZ in train',
     # 'split: out of adm1 year all 2012plus',
-    'split: random urban 2012plus excluded drop surveys (ZAuEG)',
-    'split: non overlapping year urban 2012plus excluded drop surveys (ZAuEG)',
+    # 'split: random urban 2012plus excluded drop surveys (ZAuEG)',
+    # 'split: non overlapping year urban 2012plus excluded drop surveys (ZAuEG)',
     # 'split: random urban 2012plus excluded drop surveys (ZAuEG)',
     # 'split: out of country all 2012plus MZ in train',
     # 'split: out of country year all MZ in train',
@@ -69,12 +69,14 @@ splits_l = [
     # 'split: random all',
     # 'split: random all excluded drop surveys (ZAuEG)',
     # 'split: random all excluded outlier surveys random',
-]
+    'split: random all 2012plus',
+    'split: out of country year all 2012plus',
+   ]
 
 # define the label column names with an appended number and specify a normalization, upper and lower std multiples to drop outliers
 # (refer to load_labels() in water_w_regression.py for more information)
 label_d = [
-    'PCA w_location_weighting urban2', {'label normalization': 'Z',}
+    'women_bmi1', {'label normalization': 'Z',}
     # 'PCA w_weighting urban3': {'label normalization': 'Z',
     # 'max std': 2.5, 'drop min max value': False,
     # 'min std': -2.5},

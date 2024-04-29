@@ -28,6 +28,15 @@ from memory_profiler import profile
 #import sleep
 from time import sleep
 from ethiopian_date import EthiopianDateConverter
+import sys
+
+parent_dir = os.path.abspath(os.path.join(os.getcwd(), "..")) + '/water_sven/'
+print(parent_dir)
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
+import helper_utils as hu
+import visualizations as vis
+import geo_utils as gu
 
 
 
@@ -2697,7 +2706,400 @@ def preprocessing_unified_columns(unify_columns_df, file_paths, dataset_type, fo
         combined_df = combined_df.merge(df, on='DHSID + HHID', how='outer')
     return combined_df, set(all_cols)
     
-        
+
+def split_label_df(df_in, sub_df_ind, value_col, force_split_col2, split_col_n, img_path, excl_outlier, force_test_ind, force_into, since_year=2012, split_amount=6, excl_outlier_std=1, assign_test=False):
+    """
+    Split the label DataFrame according to an x-cross evaluation.
+
+    Parameters
+    ----------
+    df_in : pandas.DataFrame
+        The input label DataFrame to split.
+    mode : str
+        The mode to use for splitting and labeling the DataFrame. Valid options include:
+            - 'split: random': Randomly split the DataFrame into `split_amount` splits.
+            - 'split: without <2015': Split the DataFrame into `split_amount` splits, but exclude any rows with a DHSYEAR less than 2015.
+            - 'split: country year': Split the DataFrame by unique values of the `GEID` column, ensuring that each split does not contain multiple surveys from the same country.
+            - 'split: out of country': Split the DataFrame by unique values of the first two characters of the `GEID` column.
+    sub_df_ind : str or bool, optional
+        If 'rural', only include rows where the `URBAN_RURA` column is 'R'. If 'urban', only include rows where the `URBAN_RURA` column is 'U'. If 'all' (default) or False, include all rows.
+    split_amount : int, optional
+        The number of splits to create (default 6).
+    last_split_as_test : bool, optional
+        If True (default), the last split will be labeled as 'test' instead of 'split N'.
+    force_test_ind : str or bool, optional
+        If a string is provided, any split containing a row with a value of `force_test_ind` in the column used for splitting will be labeled as 'test'.
+         E.g 'MZ' ('split: out of country') or 'MZGE7AFL' ('split: out of country') can be provided to put Mozambique (2018) into the test set.
+         If False (default), this behavior is disabled.
+    img_path : bool, str
+        If the path to the geotiff folder is passed omits rows where there are no geotiffs available else False
+
+    Returns
+    -------
+    pandas.DataFrame
+        The input DataFrame with an additional column indicating the split based on the chosen mode.
+    """
+    df_in = df_in.copy()
+    df = prepare_df(df_in, sub_df_ind, img_path, excl_outlier, excl_outlier_std, split_col_n, value_col, since_year=since_year)
+#     print('1.1', df[split_col_n].value_counts())
+
+    if 'split: random' in split_col_n:
+        df = df.sample(frac=1)
+        for i in range(0, split_amount):
+            df[split_col_n].iloc[int(len(df)/split_amount) * (i): int(len(df)/split_amount) * (i+1)] = 'split ' + str(i)
+
+        if assign_test:
+            scores = hu.statistical_weighted_test_set(df, split_col_n, value_col)
+            df.loc[df[split_col_n] == scores[0][0], split_col_n] = 'test'
+        df_in = pd.merge(df_in, df[["DHSID", split_col_n]], how="outer", on=['DHSID'])
+    else:
+        column = 'split col'
+        if 'year' in split_col_n:
+            df[column] = df[force_split_col2] + df['DHSYEAR'].astype(int).astype(str)
+        else:
+            df[column] = df[force_split_col2]
+
+        # Shuffle the dataframe
+        df_shuffled = df.sample(frac=1).reset_index(drop=True)
+        # Get the unique values of the categorical column
+        unique_values = df_shuffled[column].unique()
+        # Initialize a dictionary to store the rows for each unique value
+        value_rows = {value: df_shuffled[df_shuffled[column] == value] for value in unique_values}
+        #print(value_rows)
+        # Sort the unique values by decreasing order of count
+        sorted_values = {k: v for k, v in sorted(value_rows.items(), key=lambda item: len(item[1]), reverse=True)}
+        sorted_dfs = [pd.DataFrame(columns=df.columns) for i in range(split_amount)]
+        look_up_d = {i: {} for i in range(split_amount)}
+        look_up_d_new = {}
+        for unique_value, sub_df in sorted_values.items():
+            if sub_df[force_split_col2].iloc[0] not in look_up_d:
+                look_up_d_new[sub_df[force_split_col2].iloc[0]] = {}
+            if 'year' in split_col_n:
+                #make sure that it will be sorted into a split where the same country is not in it right now
+                put_into_split = False
+                for nr, sdf in enumerate(sorted_dfs):
+                    if nr not in look_up_d_new[sub_df[force_split_col2].iloc[0]]:
+                        look_up_d_new[sub_df[force_split_col2].iloc[0]][nr] = set([])
+                    if sub_df['adm0_name'].iloc[0] not in look_up_d_new[sub_df[force_split_col2].iloc[0]][nr]:
+                        sorted_dfs[nr] = pd.concat([sdf, sub_df])
+                        look_up_d_new[sub_df[force_split_col2].iloc[0]][nr].add(sub_df['adm0_name'].iloc[0])
+                        put_into_split = True
+                        break
+                if not put_into_split:
+                    #we exceeded the amount of splits
+                    sub_df2 = pd.DataFrame(df[column].value_counts()).reset_index()
+                    sub_df2.columns = [column, 'amount']
+                    print('value counts\n', sub_df2)
+                    print(split_col_n)
+                    # print(look_up_d[sub_df['adm0_name'].iloc[0]])
+                    print(f"To many surveys for {sub_df[force_split_col2].iloc[0]} cannot sort in without putting multiple surveys of that country into one split")
+                    #sort the following by the amount of unique values
+                    print(df.groupby(force_split_col2)[column].nunique().sort_values())
+                    # print(df.groupby(force_split_col2)[column].unique())
+                    print(df[df[force_split_col2] == sub_df[force_split_col2].iloc[0]][['DHSYEAR', 'GEID', force_split_col2, 'adm0_name']].value_counts())
+                    raise NotImplementedError("Possibly just raise the amount of splits")
+            else:
+                #concat the sub_df of unique_value to the shortest df
+                sorted_dfs[0] = pd.concat([sorted_dfs[0], sub_df])
+            #sort so that always the df with the least amount of rows is on pos 0
+            sorted_dfs = sorted(sorted_dfs, key=lambda x: len(x))
+
+        #stick everything together
+        fdf = pd.concat([sdf for sdf in sorted_dfs])
+        df_in = pd.merge(df_in, fdf[["DHSID", split_col_n]], how="outer", on=['DHSID'])
+
+        if assign_test:
+            #assign a test split to either Mozambique or to split 0
+            if force_test_ind:
+                if isinstance(force_test_ind, str):
+                    if force_into:
+                        test_split_n = df_in[df_in['adm0_name'] == force_test_ind][split_col_n].iloc[0]
+                    else:
+                        for test_split_n in df_in[split_col_n].unique():
+                            if force_test_ind not in df_in[df_in[split_col_n] == test_split_n]['adm0_name']:
+                                break
+                        else:
+                            raise ValueError(f'This should not happen force_test_ind is {force_test_ind}')
+                elif isinstance(force_test_ind, tuple):
+                    if force_into:
+                        test_split_n = df_in[(df_in['adm0_name'] == force_test_ind[0]) & (df_in['DHSYEAR'] == force_test_ind[1])][split_col_n].iloc[0]
+                    else:
+                        for test_split_n in df_in[split_col_n].unique():
+                            #make sure force_test_ind (adm0_name) is not in the test split (every Moz survey should be in the train split)
+                            if force_test_ind[0] not in df_in[df_in[split_col_n] == test_split_n]['adm0_name']:
+                                break
+                        else:
+                            raise ValueError(f'This should not happen force_test_ind is {force_test_ind}')
+                else:
+                    raise ValueError(f'This should not happen force_test_ind is {force_test_ind}')
+            else:
+                scores = hu.statistical_weighted_test_set(df, split_col_n, value_col)
+                test_split_n = scores[0][0]
+            df_in.loc[df_in[split_col_n] == test_split_n, split_col_n] = 'test'
+    return df_in
+
+
+def prepare_df(df_in, sub_df_ind, img_path, excl_outlier, excl_outlier_std, split_col_n, value_col=False, since_year=2012):
+    df = df_in.copy()
+    df[split_col_n] = np.NaN
+    if since_year:
+        df = df[df['DHSYEAR'] >= since_year]
+    #restrict to specified area type
+    if sub_df_ind == 'rural':
+        df = df[df['URBAN_RURA'] == 'R']
+    elif sub_df_ind == 'urban':
+        df = df[df['URBAN_RURA'] == 'U']
+    elif sub_df_ind is False or sub_df_ind == 'all':
+        pass
+    else:
+        raise NotImplementedError()
+    #reducing to available images
+    if img_path:
+        available_files = hu.files_in_folder(img_path, return_pathes=False)
+        # print(available_files)
+        # print(df['TIF_name'])
+        df["TIF_name"] = df['TIF_name'] + '.tif'
+        df["TIF_name"] = df['TIF_name'].apply(lambda x: x if x in available_files else np.NaN)
+        df = df[df["TIF_name"].notna()]
+        if len(df) == 0:
+            print(available_files[:5])
+            print(df['TIF_name'].head())
+            raise ValueError('found no suiting images')
+    if excl_outlier:
+        #excluding outlier surveys (e.g. Egypt, South-Africa)
+        df = df[~df['GEID'].isin(drop_survey)]
+        if excl_outlier == 'std':
+            mean = df[value_col].mean()
+            std = df[value_col].std()
+            print(split_col_n, value_col, 'mean:', mean, 'STD', std)
+            for cy in df["GEID"].unique():
+                sub_df = df[df["GEID"] == cy]
+                sub_mean = sub_df[value_col].mean()
+                # print('sub_mean', sub_mean, 'vs', mean, 'std', std, 'exclstd', excl_outlier_std)
+                if sub_mean > mean + excl_outlier_std * std or sub_mean < mean - excl_outlier_std * std:
+                    print('dropping', cy, 'amount:', len(sub_df), 'mean:', sub_mean, 'vs', mean)
+                    vis.standard_hist_from_df(sub_df[value_col], projects_p + '/imgs/excl_surveys/', cy, sub_df['adm0_name'].iloc[0] + '_' + str(int(sub_df['DHSYEAR'].iloc[0])))
+                    #iteratively removing surveys with high deviation of parent distribution (measured on mean)
+                    df = df[df["GEID"] != cy]
+    df = df[(df[value_col] >= df[value_col].mean() - 3.5 * df[value_col].std()) & (df[value_col] <= df[value_col].mean() + 3.5 * df[value_col].std())]
+    return df
+
+
+def visualize_splits(df, value_col, split_col_n, projects_p):
+    print('\n', f"{split_col_n} size={len(df[value_col])}, mean={df[value_col].mean():.2f}, std={df[value_col].std():.2f}, min={df[value_col].min():.2f}, max={df[value_col].max():.2f} (Whole ds)")
+    vis.standard_hist_from_df(df[value_col], projects_p + '/imgs/splits/', split_col_n, title_in='Whole DS', minv=-3.5, maxv=3.5)
+    sub_df = df[df[split_col_n].notna()]
+    vis.standard_hist_from_df(sub_df[value_col], projects_p + '/imgs/splits/', split_col_n, title_in='WO excluded', minv=-3.5, maxv=3.5)
+    print(split_col_n, f'size={len(sub_df[value_col])}, mean={sub_df[value_col].mean():.2f}, std={sub_df[value_col].std():.2f}, min={sub_df[value_col].min():.2f}, max={sub_df[value_col].max():.2f} (Whole ds without excluded areas)')
+    means = []
+    stds = []
+    sizes = []
+    for s in df[split_col_n].unique():
+        split_data = df[df[split_col_n] == s][value_col]
+        #test for isna with possible str input
+        if pd.isnull(s):
+            split_data = df[df[split_col_n].isna()][value_col]
+            s = '                      NAN'
+        else:
+            means.append(split_data.mean())
+            stds.append(split_data.std())
+            sizes.append(len(split_data))
+        # if np.isnan(s):
+        #     split_data = df[df[split_col_n].isna()][value_col]
+        split_col_n_p = split_col_n.replace(' ', '_')
+        print(f"{split_col_n} {s}: size={len(split_data)}, mean={split_data.mean():.2f}, std={split_data.std():.2f}, min={split_data.min():.2f}, max={split_data.max():.2f}")
+        vis.standard_hist_from_df(sub_df[value_col], projects_p + '/imgs/splits/', split_col_n_p, title_in=s, minv=-3.5, maxv=3.5)
+    print(f"{split_col_n} std of means: {np.std(means):.2f}, std of stds: {np.std(stds):.2f}, std of sizes {np.std(sizes):.2f}")
+
+
+#write a function that statistically compares the different splits
+def stats_of_splits(df, value_col, split_col_n, force_split_col, split_dict):
+    split_dict[split_col_n] = {}
+    means = []
+    stds = []
+    sizes = []
+    for v in ['mean', 'std', 'size', 'skew', 'kurtosis']:
+        for spl in list(df[split_col_n].unique()) + ['whole ds', 'without excluded areas and imgs']:
+            #how to break here if spl is not a number?
+            if pd.isnull(spl):
+                continue
+            if spl == 'whole ds':
+                sub_df = df[value_col]
+            elif spl == 'without excluded areas and imgs':
+                sub_df = df[df[split_col_n].notna()][value_col]
+            else:
+                sub_df = df[df[split_col_n] == spl][value_col]
+            n = spl + ' ' + v
+            if v == 'mean':
+                split_dict[split_col_n][n] = sub_df.mean()
+                if spl != 'whole ds' and spl != 'without excluded areas and imgs':
+                    means.append(sub_df.mean())
+            elif v == 'std':
+                split_dict[split_col_n][n] = sub_df.std()
+                if spl != 'whole ds' and spl != 'without excluded areas and imgs':
+                    stds.append(sub_df.std())
+            elif v == 'size':
+                split_dict[split_col_n][n] = int(len(sub_df))
+                if spl != 'whole ds' and spl != 'without excluded areas and imgs':
+                    sizes.append(int(len(sub_df)))
+            elif v == 'skew':
+                split_dict[split_col_n][n] = sub_df.skew()
+            elif v == 'kurtosis':
+                split_dict[split_col_n][n] = sub_df.kurtosis()
+    split_dict[split_col_n]['std of means'] = np.std(means)
+    split_dict[split_col_n]['std of stds'] = np.std(stds)
+    split_dict[split_col_n]['std of sizes'] = np.std(sizes)
+    # stats_df = pd.DataFrame(split_dict)
+    return split_dict
+
+
+def split_df_accounting_for_mean(df_in, sub_df_ind, value_col, force_split_col, split_col_n, img_path, excl_outlier, force_test_ind, force_into, since_year, n_splits=6, excl_outlier_std=1, assign_test=False):
+    df = df_in.copy()
+    df = df.dropna(subset=[value_col])
+    # print('1', 'adm0_name' in df.columns)
+    # print('split_col_n', split_col_n)
+    # print('force_split_col', force_split_col)   
+    # print(value_col)
+    # print(len(df[value_col].dropna()))
+    
+    split_columns = [force_split_col]
+    if 'year' in split_col_n:
+        split_columns.append('DHSYEAR')
+    if 'adm0_name' not in split_columns:
+        split_columns.append('adm0_name')
+    
+    df = df.dropna(subset=split_columns)
+    
+    data = prepare_df(df, sub_df_ind, img_path, excl_outlier, excl_outlier_std, split_col_n, value_col=value_col, since_year=since_year)
+    parent_mean, parent_std = data[value_col].agg(['mean', 'std'])
+    # print('2', 'adm0_name' in df.columns)
+    
+    # print(split_columns)
+    # print(data.columns)
+    # print(len(data))
+    # for split_col in split_columns:
+    #     print('T', split_col in data.columns)
+    stats_df = data.groupby(split_columns)[value_col].agg(['mean', 'count']).reset_index()
+    # print(len(stats_df))
+    stats_df = stats_df[stats_df['mean'].notna()]
+    # print(len(stats_df))
+    stats_df['mean_diff_w'] = (stats_df['mean'] - parent_mean) * stats_df['count']/stats_df['count'].mean()
+    stats_df['mean_abs_w'] = np.abs(stats_df['mean_diff_w'])
+    #create a balanced weighting from 'mean_abs_w' and 'count'
+    stats_df['sort_score'] = stats_df['mean_abs_w']/stats_df['mean_abs_w'].std() + (stats_df['count'] - stats_df['count'].mean()) / stats_df['count'].std()
+    stats_df = stats_df.sort_values(['sort_score'], ascending=[False])
+    # print('statsdf', stats_df)
+    splits = [[] for _ in range(n_splits)]
+
+    #check if other years of the same are already have been added to the split
+    look_up_d = {i: {} for i in range(n_splits)}
+    for k, (j, row1) in enumerate(stats_df.iterrows()):
+        best_split = None
+        min_score = float('inf')
+        str_l = []
+        for nr, split in enumerate(splits):
+            if row1['adm0_name'] not in look_up_d[nr]:
+                look_up_d[nr][row1['adm0_name']] = set([])
+
+            temp_split = split + [row1]
+            if split:
+                try:
+                    combined_mean_diff = np.nanmean([row['mean_diff_w'] for row in split])
+                except RuntimeWarning as e:
+                    print(e)
+                    combined_mean_diff = 0
+            else:
+                combined_mean_diff = 0
+            try:
+                combined_mean_diff_new = np.nanmean([row['mean_diff_w'] for row in temp_split])
+            #also print Warning if the mean is nan
+            except RuntimeWarning as e:
+                print(e)
+                combined_mean_diff_new = 0
+
+            #add penalty if the mean goes into the wrong direction
+            if len(split) == 0:
+                score = 0
+            #add penalty if the mean goes into the wrong direction
+            elif combined_mean_diff <= 0 <= row1['mean_diff_w'] or row1['mean_diff_w'] <= 0 <= combined_mean_diff:
+                #if the mean switches from negative to positive, add the difference as a penalty else use it as a weighting to force the furthest away to have a high chance to be added
+                if combined_mean_diff <= 0 <= combined_mean_diff_new or combined_mean_diff_new <= 0 <= combined_mean_diff:
+                    score = abs(combined_mean_diff_new)
+                else:
+                    score = -abs(combined_mean_diff_new)
+            else:
+                #if it is pointing into the wrong direction, add it as a penalty though
+                score = abs(combined_mean_diff_new) + abs(combined_mean_diff_new)
+
+            # Calculate the penalty based on the difference of summed counts between the splits
+            counts = [sum([r['count'] for r in s] + [row1['count']]) for s in splits]
+            count_local = sum([r['count'] for r in split]) + row1['count']
+            count_penalty = 1 * max(parent_std, abs(combined_mean_diff_new)) * (count_local - np.min(counts))/count_local * (len(stats_df)/2 + k/2)/len(stats_df)
+            score += count_penalty
+            str_l.append([nr, count_local, score, combined_mean_diff, combined_mean_diff_new, count_penalty, row1['mean_diff_w'], row1['count']])
+
+            if score < min_score and ('year' not in split_col_n or row1[force_split_col] not in look_up_d[nr][row1['adm0_name']]):
+                min_score = score
+                best_split = nr
+        # print('appending', 'to', best_split)
+        if best_split is None:
+            print(split_col_n)
+            #sort the following by the amount of unique values
+            # print(data.groupby(force_split_col)[force_split_col].nunique().sort_values())
+            print(df[df[force_split_col] == row1[force_split_col]][['DHSYEAR', 'GEID', force_split_col, 'adm0_name']].value_counts())
+            print(stats_df[stats_df[force_split_col] == row1[force_split_col]][split_columns].value_counts())
+            print(f"To many surveys for {row1[force_split_col]} cannot sort in without putting multiple surveys of that country into one split")
+            raise NotImplementedError("Possibly just raise the amount of splits")
+
+        # if str_l[best_split][1] == max(c[1] for c in str_l) and k >= 2:
+        # print(best_split)
+        # for str_gen in str_l:
+        #     print(f"k {k} split {str_gen[0]} count {str_gen[1]} score {str_gen[2]} combined_mean_diff {str_gen[3]} combined_mean_diff_new {str_gen[4]} count_penalty {str_gen[5]} row mean diff w {str_gen[6]} row count {str_gen[7]}")
+        splits[best_split].append(row1)
+        look_up_d[best_split][row1['adm0_name']].add(row1[force_split_col])
+        # print('hi')
+    # print('splits', splits)
+    # Create a dictionary to map group keys (tuple of values from groupby_cols) to their split assignments
+    split_assignments = {tuple(row[split_columns]): i for i, country_group in enumerate(splits) for row in country_group}
+    print('spl', split_assignments)
+    # Update the 'Split' column in the input data with the split assignments
+    data[split_col_n] = data[split_columns].apply(lambda x: f'split {split_assignments[tuple(x)]}', axis=1)
+
+    if assign_test:
+        #assign a test split to either Mozambique or to split 0
+        if force_test_ind:
+            if isinstance(force_test_ind, str):
+                if force_into:
+                    test_split_n = data[data['adm0_name'] == force_test_ind][split_col_n].iloc[0]
+                else:
+                    for test_split_n in data[split_col_n].unique():
+                        if force_test_ind not in data[data[split_col_n] == test_split_n]['adm0_name']:
+                            break
+                    else:
+                        raise ValueError(f'This should not happen force_test_ind is {force_test_ind}')
+            elif isinstance(force_test_ind, tuple):
+                if force_into:
+                    test_split_n = data[(data['adm0_name'] == force_test_ind[0]) & (data['DHSYEAR'] == force_test_ind[1])][split_col_n].iloc[0]
+                else:
+                    for test_split_n in data[split_col_n].unique():
+                        #make sure force_test_ind (adm0_name) is not in the test split (every Moz survey should be in the train split)
+                        if force_test_ind[0] not in data[data[split_col_n] == test_split_n]['adm0_name']:
+                            break
+                    else:
+                        raise ValueError(f'This should not happen force_test_ind is {force_test_ind}')
+            else:
+                raise ValueError(f'This should not happen force_test_ind is {force_test_ind}')
+        else:
+            #create mean and std weighted scores
+            scores = hu.statistical_weighted_test_set(df, split_col_n, value_col)
+            test_split_n = scores[0][0]
+        data.loc[data[split_col_n] == test_split_n, split_col_n] = 'test'
+    print('1', len(data), len(df_in))
+    ldfin = len(df_in)
+    df_in = pd.merge(df_in, data[["DHSID", split_col_n]], how="left", on='DHSID')
+    print(len(df_in))
+    assert len(df_in) == ldfin
+    return df_in
         
 #Known issues:
 # - to_csv does alter encoding so that some chars are missrepresented (needs to be fixed in .csv to correctly load from preprocessing)

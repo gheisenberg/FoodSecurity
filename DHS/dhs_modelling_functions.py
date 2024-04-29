@@ -5,15 +5,21 @@ import numpy as np
 from collections import defaultdict, OrderedDict
 from sklearn.model_selection import KFold
 from icecream import ic
+from sklearn.metrics import r2_score, mean_squared_error
+from pdpbox import pdp, get_example, info_plots
+import plotly.io as py
+from sklearn.model_selection import train_test_split
+
 
 
 def final_ds_droping_cols(df_in, drop_meta=False, drop_6_7_y_FS=True, drop_food_help=True, drop_IPC_wo_food_help=False, drop_perc=75, drop_region=True, 
                 drop_languages=['language of interview', 'native language', 'language of questionnaire'],
                 IPC_mode='mean', drop_20_25_y_FS=True, drop_0_1_y_FS=True, use_short_long_FS_time_spans='long', numerical_data=['mean', 'std', 'skewness', 'kurtosis'], 
                 use_NAN_amount_and_replace_NANs_in_categorical=False, retain_year=True, retain_month=True, 
-                retain_adm=['adm0_gaul', 'adm1_gaul', 'adm2_gaul'], retain_GEID_init=True, retain_percentage_of_valid_answers=False,
+                retain_adm=['adm0_gaul', 'adm1_gaul', 'adm2_gaul'], retain_GEID_init=False, retain_percentage_of_valid_answers=False,
                 drop_single_categorical_cols=True, drop_one_of_double_categorical_cols=True, drop_highly_correlated_cols=False, 
                 drop_data_sets=[], drop_agricultural_cols=False, drop_below_version=False, ensure_fold_columns_are_available=True,
+                numerical_return_format='float32', retrieve_ds=[],
                 verbose=3):
     """
     This function retrieves a DataFrame after applying a series of transformations based on the provided parameters.
@@ -43,6 +49,7 @@ def final_ds_droping_cols(df_in, drop_meta=False, drop_6_7_y_FS=True, drop_food_
         ensure_fold_columns_are_available (bool, optional): If True, the function will ensure that the columns 'Meta;' + 'adm0_gaul', 'year' and 'GEID_init' are retained. Default is True.
         drop_highly_correlated_cols (bool, optional): If True, the function will drop highly correlated columns. Default is False.
         drop_data_sets (list, optional): List of data sets to drop. Defaults to []. Possible values: ['Meta', 'FS', 'DHS Num', 'DHS Cat', 'Meta one-hot encoding', 'Meta frequency encoding'].
+        only_ds
         drop_agricultural_cols (bool, optional): If True, the function will drop agricultural columns, might be suitable for urban calculations. Default is False.
         drop_below_version (int, optional): If set, the function will drop all data below the specified version. Default is False.
         verbose (int, optional): Verbosity level. Defaults to 3.
@@ -51,7 +58,6 @@ def final_ds_droping_cols(df_in, drop_meta=False, drop_6_7_y_FS=True, drop_food_
         pd.DataFrame: The transformed DataFrame.
     """
     
-    #               drop_data_sets=['Meta', 'FS', 'DHS Num', 'DHS Cat', 'Meta one-hot encoding', 'Meta frequency encoding'],
     df = df_in.copy()
     df = df.reset_index(drop=False)
     incoming_cols = df.columns.tolist()
@@ -63,17 +69,17 @@ def final_ds_droping_cols(df_in, drop_meta=False, drop_6_7_y_FS=True, drop_food_
             df['version_nr'] = df['Meta; GEID_init'].str[4].astype(int).values
         df = df[df['version_nr'] >= drop_below_version]
         df.drop(columns=['version_nr'])
-        
-    if drop_data_sets:
-        drop_data_sets = [c + ';' for c in drop_data_sets]
-        # Drop specified datasets:
-        for drop_data_set in drop_data_sets:
-            cols = [c for c in df.columns if drop_data_set in c]
-            df.drop(columns=cols, inplace=True)
-            if verbose == 3:
-                print(f'Dropped {drop_data_set} data: {cols}')
     
-    if drop_meta:
+    if retrieve_ds:
+        all_ds = set([c.split(';', 1)[0] for c in df.columns])
+        print(all_ds)
+        print(set(retrieve_ds))
+        drop_data_sets = all_ds.difference(set(retrieve_ds))
+        print(drop_data_sets)
+        if len(drop_data_sets) == len(all_ds):
+            raise ValueError(f'No data sets left after filtering - not matching only_ds: {retrieve_ds}')
+           
+    if drop_meta or 'Meta' in drop_data_sets:
         retaining_inds = []
         if retain_year or ensure_fold_columns_are_available:
             retaining_inds.append('year')
@@ -94,6 +100,18 @@ def final_ds_droping_cols(df_in, drop_meta=False, drop_6_7_y_FS=True, drop_food_
             cols = [c for c in df.columns if 'Meta; ' in c and not any(ind in c for ind in retaining_inds)]
         df.drop(columns=cols, inplace=True)
         drop_meta_cols = cols
+        remaining_meta_cols = [c for c in df.columns if 'Meta; ' in c]
+        
+    
+    if drop_data_sets:
+        drop_data_sets = [c + ';' for c in drop_data_sets]
+        # Drop specified datasets:
+        for drop_data_set in drop_data_sets:
+            cols = [c for c in df.columns if drop_data_set in c and c not in remaining_meta_cols]
+            df.drop(columns=cols, inplace=True)
+            if verbose == 3:
+                print(f'Dropped {drop_data_set} data: {cols}')
+    
     if drop_6_7_y_FS:
         cols = [c for c in df.columns if '6-7y' in c and 'IPC' in c]
         df.drop(columns=cols, inplace=True)
@@ -193,8 +211,15 @@ def final_ds_droping_cols(df_in, drop_meta=False, drop_6_7_y_FS=True, drop_food_
                 if verbose == 3:
                     print(f'Dropped single cat {col_base}: {l[0]}')
     
+    if 'index' in df.columns:
+        df = df.drop(columns=['index'])
+    
     if drop_highly_correlated_cols:
         df = drop_highly_correlated_cols_f(df, drop_highly_correlated_cols, verbose)
+        
+    if numerical_return_format:
+        num_cols = df.select_dtypes(include=[np.number])
+        df[num_cols.columns] = num_cols.astype(numerical_return_format)
         
     if verbose:
         num_dropped = set(['mean', 'median', 'std', 'skewness', 'kurtosis']).difference(numerical_data)
@@ -343,3 +368,175 @@ def fold_generator(data, split_type, n_splits=5, verbose=1):
 
         # Yielding the indices for train and test sets
         yield data[train_mask].index, data[test_mask].index
+
+
+def fold_generator_3_indices(data, split_type, n_splits=5, verbose=1, val_size=0.2):
+    """
+    Generate indices for train, validation and test sets based on the specified split type.
+
+    Parameters:
+    data (DataFrame): The input dataset.
+    split_type (str): The type of split - 'country', 'survey', or 'year'.
+    n_splits (int): Number of splits/folds for the outer cross-validation.
+    verbose (int): Level of verbosity.
+    test_size (float): Proportion of the dataset to include in the test split.
+    val_size (float): Proportion of the dataset to include in the validation split.
+    """
+    if split_type == 'country':
+        split_col = 'Meta; adm0_gaul'
+    elif split_type == 'survey':
+        split_col = 'Meta; GEID_init'
+    elif split_type == 'year':
+        split_col = 'Meta; rounded year'
+        # Ensure 'Meta; rounded year' column is created outside this function or create here based on logic provided
+        data[split_col] = data.groupby('Meta; GEID_init')['Meta; year'].transform(lambda x: round(x.mean()))
+    elif split_type == 'unconditional':
+        kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+        for train_val_idx, test_idx in kf.split(data):
+            # Split the train_val indices into training and validation indices
+            train_idx, val_idx = train_test_split(train_val_idx, test_size=val_size, random_state=42)
+            yield data.index[train_idx], data.index[val_idx], data.index[test_idx]
+        return
+    else:
+        raise ValueError(f'Invalid split_type: {split_type}')
+
+    unique_combinations = data[split_col].drop_duplicates().values
+
+    # Adjust maximum n_splits based on the number of unique combinations
+    if len(unique_combinations) < n_splits or n_splits == -1:
+        n_splits = len(unique_combinations)
+        if verbose:
+            ic(f'Adjusting n_splits to the length of unique combinations ({n_splits}) for', split_type)
+            
+    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+    
+    for train_val_combinations, test_combinations in kf.split(unique_combinations):
+        train_val_mask = data[split_col].isin(unique_combinations[train_val_combinations])
+        test_mask = data[split_col].isin(unique_combinations[test_combinations])
+        train_val_indices = data[train_val_mask].index.values
+        test_indices = data[test_mask].index.values
+        # Split the train_val indices into training and validation indices
+        train_indices, val_indices = train_test_split(train_val_indices, test_size=val_size, random_state=42)
+        
+        # Yielding the indices for train, validation and test sets
+        yield train_indices, val_indices, test_indices
+        
+
+def metrices_weighted_available_data(results_df, missing_mask, drop_perc=0, verbose=1):
+    """
+    Calculate the percentage of available data for each column in the dataset.
+
+    Parameters:
+    df (DataFrame): The input dataset.
+    verbose (int): Level of verbosity.
+    """
+    # Calculate the percentage of available data for each row
+    available_data = (len(missing_mask.columns) - missing_mask.sum(axis=1)) / len(missing_mask.columns) * 100
+    # Assuming df is your DataFrame
+    available_data = available_data[results_df.index]
+
+    # Calculate weighted averages of RMSE, nRMSE, R2 and Correlation
+    results_df['Available data'] = available_data
+    
+    res_d = defaultdict(dict)
+    #Calculate means, std, weighted means and weighted std for grouped objects an by available data
+    for i in range(90, drop_perc - 10, -10):
+        
+        results_sub_df = results_df[(results_df["Available data"] >= i)]
+        print('asd', i, len(results_sub_df))
+        mse = mean_squared_error(results_sub_df['Actual'], results_sub_df['Prediction'])
+        rmse = np.sqrt(mse)
+        r2 = r2_score(results_sub_df['Actual'], results_sub_df['Prediction'])
+        corr = np.corrcoef(results_sub_df['Actual'], results_sub_df['Prediction'])[0, 1]
+        nrmse = rmse / np.std(results_sub_df['Actual'])
+        
+        if len(results_df) == len(results_sub_df):
+            i = 'Overall'
+        res_d[i] = [rmse, nrmse, r2, corr]
+        if i == 'Overall':
+            break
+    
+    #Create DataFrame from dictionary
+    res_df = pd.DataFrame.from_dict(res_d, orient='index', columns=['RMSE', 'nRMSE', 'R2', 'Correlation']).reset_index()
+    res_df = res_df.reset_index()
+    return res_df
+
+def create_history_figures(history, out_f, fold, write_out_f=False):
+    print(history.history.keys())
+    print(history.history['loss'])
+    plt.figure(figsize=(10, 6), facecolor='white')
+    plt.plot(history.history['loss'], label='Training Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.title('Loss Curve', fontsize=20)
+    plt.xlabel('Epochs', fontsize=16)
+    plt.ylabel('Loss', fontsize=16)
+    plt.legend(fontsize=12)
+    if write_out_f:
+        plt.savefig(f'{out_f}loss_curve_fold{fold+1}.png')
+    plt.show()
+        
+    plt.figure(figsize=(10, 6), facecolor='white')
+    plt.plot(history.history['root_mean_squared_error'], label='Training RMSE')
+    plt.plot(history.history['val_root_mean_squared_error'], label='Validation RMSE')
+    plt.title('RMSE Curve', fontsize=20)
+    plt.xlabel('Epochs', fontsize=16)
+    plt.ylabel('RMSE', fontsize=16)
+    plt.legend(fontsize=15)
+    if write_out_f:
+        plt.savefig(f'{out_f}rmse_curve_fold{fold+1}.png')
+    plt.show()
+    
+
+def create_scatterplot(df, out_f):    
+    mse = mean_squared_error(df['Actual'], df['Prediction'])
+    rmse = np.sqrt(mse)
+    r2 = r2_score(df['Actual'], df['Prediction'])
+    corr = np.corrcoef(df['Actual'], df['Prediction'])[0, 1]
+    nrmse = rmse / np.std(df['Actual'])
+    plt.figure(figsize=(10, 6), facecolor='white')
+    plt.scatter(df['Actual'], df['Prediction'], alpha=0.5)
+    plt.xlabel('Actual', fontsize=16)
+    plt.ylabel('Prediction', fontsize=16)
+    plt.title(f'Prediction vs. Actual', fontsize=20)
+    plt.plot([min(df['Actual']), max(df['Actual'])], [min(df['Actual']), max(df['Actual'])], color='red')
+    plt.text(min(df['Actual']), max(df['Actual']), f'R²: {r2:.2f}\nRMSE: {rmse:.2f}\nnRMSE: {nrmse:.2f}\nCorr: {corr:.2f}', verticalalignment='top', horizontalalignment='left', backgroundcolor='white', fontsize=15)
+    plt.savefig(f"{out_f}")
+
+
+def create_PDP_plots(X_test, model, out_dir, fold):
+    print(X_test.nunique())
+    for col in X_test.columns:
+        X_in = X_test.copy()
+        print(col)
+        print('Shape', X_in.shape)
+        print(X_in[col].nunique())
+        if X_in[col].nunique() <= 1:
+            print(X_in[col])
+            continue
+        if 'encoding' in col:
+            continue
+        # Create the pdp data to be plotted
+        pdp_dist = pdp.PDPIsolate(model=model, df=X_in, model_features=X_in.columns, feature=col, feature_name=col, n_classes=0, num_grid_points=10)
+        # plot the PDP for feature 'Distance Covered (Kms)'
+        fig, axes = pdp_dist.plot(
+            center=False,
+            plot_lines=True,
+            frac_to_plot=100,
+            cluster=False,
+            n_cluster_centers=None,
+            cluster_method='accurate',
+            plot_pts_dist=True,
+            to_bins=False,
+            show_percentile=False,
+            which_classes=None,
+            figsize=None,
+            dpi=300,
+            ncols=2,
+            plot_params={"pdp_hl": True},
+            engine='plotly',
+            template='plotly_white')
+
+        #save figures
+        col_n = col.replace(';', '_').replace(' ', '_').replace('/', '_')
+        py.write_image(fig, f'{out_dir}PDP_{col_n}_Fold{fold}.png')
+        # fig.show()
