@@ -540,3 +540,30 @@ def create_PDP_plots(X_test, model, out_dir, fold):
         col_n = col.replace(';', '_').replace(' ', '_').replace('/', '_')
         py.write_image(fig, f'{out_dir}PDP_{col_n}_Fold{fold}.png')
         # fig.show()
+
+
+def create_correlation_matrix(df, file_n=False):
+    # Calculate the correlation matrix
+    corr = df.corr()
+
+    # Calculate the count of non-null values for each pair of columns
+    count_non_null = df.notnull().astype('int').T.dot(df.notnull())
+
+    sns.set_style("whitegrid")
+    plt.figure(figsize=(len(df.columns) - len(df.columns)/4, len(df.columns) - len(df.columns)/4))
+
+    # Create a mask for the upper triangle
+    mask_upper = np.triu(np.ones_like(corr, dtype=bool))
+
+    # Create a mask for the lower triangle
+    mask_lower = np.tril(np.ones_like(corr, dtype=bool))
+
+    # Draw the heatmap with the mask and correct aspect ratio for the lower triangle (correlation values)
+    sns.heatmap(corr, annot=True, cmap='RdBu', fmt=".2f", mask=mask_upper, cbar=False)
+
+    # Draw the heatmap with the mask and correct aspect ratio for the upper triangle (count of non-null values)
+    sns.heatmap(count_non_null, annot=True, cmap='RdBu', fmt="d", mask=mask_lower, cbar=False)
+    if file_n:
+        plt.savefig(file_n)
+
+    plt.show()

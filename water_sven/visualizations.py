@@ -8,6 +8,8 @@ from sklearn.metrics import classification_report, confusion_matrix
 import pandas as pd
 import seaborn as sns
 import pickle
+from sklearn.metrics import r2_score, mean_squared_error
+
 
 import helper_utils as hu
 # import water_w_regression as wwr
@@ -342,10 +344,12 @@ def scatterplotRegressionMultiInputs(df, run_path, file_name='', multidataset_co
     pearson_corr = corr_value.iloc[1,0]
     rmse = ((metrics_df.iloc[:, 0] - metrics_df.iloc[:, 1]) ** 2).mean() ** 0.5
     nrmse = rmse / metrics_df.iloc[:, 0].std()
+    r2 = r2_score(metrics_df.iloc[:, 0], metrics_df.iloc[:, 1])
 
     parameter_text = "\n".join(
         (
             r"$pearson\ corr=%.2f$" % (pearson_corr,),
+            r"$R²=%.2f$" % (r2,),
             r"$\alpha=%.2f,\ beta=%.2f$" % (alpha, beta,),
             r"$(n)rmse=%.2f\:\ (%.2f)$" % (rmse, nrmse),
         )
@@ -400,7 +404,7 @@ def scatterplotRegressionMultiInputs(df, run_path, file_name='', multidataset_co
     plt.savefig(run_path + 'Scatterplot: ' + file_name + ".png", dpi=300, bbox_inches="tight")
     # plt.show()
     plt.close('all')
-    return beta, alpha, pearson_corr, rmse, nrmse
+    return beta, alpha, pearson_corr, rmse, nrmse, r2
 
 
 def plot_CM(label_true, prediction_true, classes, save_path, mode='both', title='Confusion matrix', cmap=plt.cm.Blues):

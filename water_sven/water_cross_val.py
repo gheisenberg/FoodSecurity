@@ -12,7 +12,8 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import shutil
 import sys
-
+import matplotlib
+matplotlib.use('Agg')  # Use a non-interactive backend
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -753,12 +754,12 @@ def evaluate_dataset(model, evaluate_ds, steps_per_epoch_evaluate, run_path, lab
     evaluate_df = evaluate_df.drop("manual Actual true", axis=1)
 
     if cfg.type_m == 'regression':
-        beta, alpha, pearson_corr, rmse, nrmse = \
+        beta, alpha, pearson_corr, rmse, nrmse, r2 = \
             visualizations.scatterplotRegressionMultiInputs(df=evaluate_df[["Actual", "Prediction"]],
                                                             run_path=eval_path,
                                                             file_name=split + ' ' + evaluate_mode + add_name)
-        for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse"],
-                         [beta, alpha, pearson_corr, rmse, nrmse]):
+        for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse", "r2"],
+                         [beta, alpha, pearson_corr, rmse, nrmse, r2]):
             additional_reports_d[f"{evaluate_mode}_{na}"] = v
         if cfg.report_original_data and \
                 ('label normalization' in label_d or 'transformation' in label_d):
@@ -769,13 +770,13 @@ def evaluate_dataset(model, evaluate_ds, steps_per_epoch_evaluate, run_path, lab
                                                                   run_path=eval_path, **label_d)
             evaluate_df["Actual Original Data"] = reversed_evaluate_prediction["Actual"]
             evaluate_df["Pred Original Data"] = reversed_evaluate_prediction["Prediction"]
-            beta, alpha, pearson_corr, rmse, nrmse = \
+            beta, alpha, pearson_corr, rmse, nrmse, r2 = \
                 visualizations.scatterplotRegressionMultiInputs(
                     df=evaluate_df[["Actual Original Data", "Pred Original Data"]],
                     run_path=eval_path,
                     file_name='Original_Data_' + split + ' ' + evaluate_mode + add_name)
-            for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse"],
-                             [beta, alpha, pearson_corr, rmse, nrmse]):
+            for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse", "r2"],
+                             [beta, alpha, pearson_corr, rmse, nrmse, r2]):
                 additional_reports_d[f"{evaluate_mode}_{na}_Original_Data"] = v
             # proven works
             # if label_col_in:
@@ -1065,13 +1066,13 @@ def evaluate_final_dataset(test_dfs_l, val_dfs_l, run_path, split_col, labels_df
                 sub_df = df[["Actual", "Prediction"]]
             # logger.debug('Sub df before Scatterpot %s \n%s', name, sub_df)
             if len(sub_df) > 2:
-                beta, alpha, pearson_corr, rmse, nrmse = visualizations.scatterplotRegressionMultiInputs(sub_df, path,
+                beta, alpha, pearson_corr, rmse, nrmse, r2 = visualizations.scatterplotRegressionMultiInputs(sub_df, path,
                                                                                                          file_name=name,
                                                                                                          multidataset_col=split_col_sdf)
                 if not 'cluster' in name:  # or 'clustered' in name and ('2km' in name or '3km' in name or '4km' in name or '5km' in name):
                     df.to_csv(run_path + 'csv/' + name + '.csv', index=False)
-                    for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse"],
-                                     [beta, alpha, pearson_corr, rmse, nrmse]):
+                    for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse", "r2"],
+                                     [beta, alpha, pearson_corr, rmse, nrmse, r2]):
                         eval_d[f"{name} {na}"] = v
                 elif 'cluster' in name:
                     df.to_csv(run_path + 'clustered/csv/' + name + '.csv', index=False)
@@ -1084,12 +1085,12 @@ def evaluate_final_dataset(test_dfs_l, val_dfs_l, run_path, split_col, labels_df
                     sub_df = df[["Actual Original Data", "Pred Original Data"]]
 
                 if len(sub_df) > 0:
-                    beta, alpha, pearson_corr, rmse, nrmse = visualizations.scatterplotRegressionMultiInputs(sub_df,
+                    beta, alpha, pearson_corr, rmse, nrmse, r2 = visualizations.scatterplotRegressionMultiInputs(sub_df,
                                                                                                          path,
                                                                                                          file_name=name + " Original Data",
                                                                                                          multidataset_col=split_col_sdf)
-                for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse"],
-                                 [beta, alpha, pearson_corr, rmse, nrmse]):
+                for na, v in zip(["beta", "alpha", "pearson_corr", "rmse", "nrmse", "r2"],
+                                 [beta, alpha, pearson_corr, rmse, nrmse, r2]):
                     eval_d[f"{name} {na} Original Data"] = v
     else:
         raise NotImplementedError("Overall evaluation of a categorical model is not implemented right now")
@@ -1312,6 +1313,7 @@ def main():
                     logger.info(labels_df['label'].value_counts())
                     logger.info(labels_df[label_name].value_counts())
 
+            print('cache')
             # create cache path
             cache_p = os.path.join(cfg.tmp_p, 'cache', run_name, '')
             if cfg.verbose:
@@ -1326,6 +1328,7 @@ def main():
 
             # strategy scope from tf.distribute.MirroredStrategy(gpus) (cf. top of file) in TF2 is used for mutlti-gpu
             # usage
+            print('strategy')
             with strategy.scope():
                 # Everything that creates variables should be under the strategy scope.
                 # In general this is only model construction & `compile()`.
@@ -1335,6 +1338,7 @@ def main():
                                     cache_p, input_shape, cfg.channels, **augmentation_d)
 
                 # steps_per_epoch=False
+                print('model')
                 loss = cfg.loss()
                 metrics_l = []
                 for m in cfg.metrics_l:
@@ -1360,6 +1364,7 @@ def main():
                 optimizer = optimizer_loading()
                 callbacks_l = callback_loader(run_path, modelcheckpoint_path, metrics_l[0])
 
+                print('compiling')
                 model.compile(optimizer=optimizer, loss=loss, metrics=metrics_l)  # , run_eagerly=True)
                 # Load weights
                 # buggy - don't know why (works without by name for same amount of classes/regression
@@ -1383,7 +1388,8 @@ def main():
                     epochs=epochs,
                     callbacks=callbacks_l,
                     steps_per_epoch=steps_per_epoch_train,
-                    validation_steps=steps_per_epoch_val)
+                    validation_steps=steps_per_epoch_val,
+                    max_queue_size=40)
             except KeyboardInterrupt:
                 history = False
                 pass
@@ -1401,6 +1407,7 @@ def main():
                 logger.debug(history.history.keys())
                 # print(history.history)
 
+            print('augmented images')
             ###Augmented images
             if cfg.save_augmented_images:
                 visualize_augmented_images(augmentation_d, train_ds, augmented_images_path)
@@ -1414,6 +1421,7 @@ def main():
                 additional_reports_d = {'max epoch': len(history.history['val_loss']),
                                         'fit time': fit_time,
                                         'Time per epoch': fit_time / len(history.history['val_loss'])}
+            print('history')
             if history:
                 for metric in metrics_l:
                     mn = metric.name
@@ -1433,9 +1441,10 @@ def main():
             ###Evaluate model
             # Evaluate the model via the test dataset
             # (highest validation accuracy seems to always perform best)
+            print('load')
             if cfg.reload_best_weights_for_eval:
                 model.load_weights(modelcheckpoint_path)
-
+            print('save')
             # Save model
             model.save(os.path.join(run_path, f'Model_{model_name}'), save_format='h5')
 
@@ -1449,13 +1458,16 @@ def main():
                     additional_reports_d['test_loss'] = r
                 additional_reports_d['test_' + metrics_l[nr - 1].name] = r
 
+            print('evaluate')
             additional_reports_d, sk_metrics_d, validation_f_df = \
                 evaluate_dataset(model, validation_ds, steps_per_epoch_val, run_path, label_mapping, add_params,
                                  scaler, label_d, model_name, validation_df, additional_reports_d,
                                  evaluate_mode='val')
+            print('evaluate2')
             additional_reports_d, sk_metrics_d, test_f_df = \
                 evaluate_dataset(model, test_ds, steps_per_epoch_test, run_path, label_mapping, add_params,
                                  scaler, label_d, model_name, test_df, additional_reports_d, label_col_in=label_name)
+            print('evaluate finished')
             val_dfs_l.append(validation_f_df)
             test_dfs_l.append(test_f_df)
             # write run_summary
@@ -1475,7 +1487,11 @@ def main():
                 run_summary_splits_df = report_df
             logger.debug('final split report\n%s', run_summary_splits_df)
             run_summary_splits_df.to_csv(run_summary_splits_f, index=False)
-
+            print('cleaning')
+            # Delete stuff
+            del model, history, train_ds, validation_ds, test_ds, callbacks_l, metrics_l, loss, optimizer
+        
+        
         ###Summary
         sub_df = run_summary_splits_df[run_summary_splits_df['run_name'] == run_name]
         mean_df = sub_df.select_dtypes(include=[np.number]).mean(axis=0)

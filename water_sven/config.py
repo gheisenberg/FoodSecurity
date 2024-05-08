@@ -30,7 +30,7 @@ prj_folder = '/mnt/datadisk/data/Projects/water/'
 # train history will be saved in a subfolder of the project path (base_folder + /projects/water/)
 # assign a name according to your group, to separate your results from all others! Create this folder manually!
 trainHistory_subname = 'trainH_sustainbench/'
-labels_f = prj_folder + '/inputs/sustainbench.csv'
+labels_f = prj_folder + '/inputs/sustainbench_women_bmi2.csv'
 # img_path = '/mnt/datadisk/data/Sentinel2/preprocessed/water_new/'
 # img_path = ['/mnt/datadisk2/preprocessed/R/996x996_c432_fillmean_m2.5_rlocal channel mean_clipvoutlier_normZ_f18977/',]
 img_path = '/mnt/datadisk2/preprocessed/all/996x996_c432_fillmean_m2.5_rlocal channel mean_clipvoutlier_normZ_f31213/'
@@ -69,8 +69,8 @@ splits_l = [
     # 'split: random all',
     # 'split: random all excluded drop surveys (ZAuEG)',
     # 'split: random all excluded outlier surveys random',
-    'split: random all 2012plus',
-    'split: out of country year all 2012plus',
+    # 'split: random all 2012plus',
+    'split: out of country year all 2012plus excluded outlier surveys',
    ]
 
 # define the label column names with an appended number and specify a normalization, upper and lower std multiples to drop outliers
@@ -124,7 +124,7 @@ channels = False
 #                                  Basic neural network parameters
 ########################################################################################################################
 ### Maximum amount of epochs
-epochs = 100
+epochs = 50
 ### Learning rate (to start with - might get dynamically lowered with callback options)
 lr = 0.0001
 # How many pictures are used to train before readjusting weights
@@ -177,7 +177,7 @@ neurons_l = [1024, 512]
 # 3rd multiplicator for lr
 auto_adjust_lr = (False, 1, 0.8)
 # model stops (first value True) when loss doesnt decrease over epochs (2nd value)
-early_stopping = (True, 8)
+early_stopping = (True, 6)
 
 
 #use an int to limit data on that amount or False to use full dataset (and not testing mode)
@@ -210,6 +210,6 @@ load_model_weights = False
 reload_best_weights_for_eval = True
 ### You can show and/or save your augmented images to become an idea of what actually goes into the model
 # False or Number of images (for every split)
-save_augmented_images = 5
+save_augmented_images = False
 #write tensorboard logs
 tensorboard = True

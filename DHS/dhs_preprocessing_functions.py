@@ -2839,7 +2839,7 @@ def split_label_df(df_in, sub_df_ind, value_col, force_split_col2, split_col_n, 
     return df_in
 
 
-def prepare_df(df_in, sub_df_ind, img_path, excl_outlier, excl_outlier_std, split_col_n, value_col=False, since_year=2012):
+def prepare_df(df_in, sub_df_ind, img_path, excl_outlier, excl_outlier_std, split_col_n, value_col=False, since_year=2012, projects_p=False):
     df = df_in.copy()
     df[split_col_n] = np.NaN
     if since_year:
@@ -2867,18 +2867,19 @@ def prepare_df(df_in, sub_df_ind, img_path, excl_outlier, excl_outlier_std, spli
             raise ValueError('found no suiting images')
     if excl_outlier:
         #excluding outlier surveys (e.g. Egypt, South-Africa)
-        df = df[~df['GEID'].isin(drop_survey)]
+        # df = df[~df['GEID'].isin(drop_survey)]
         if excl_outlier == 'std':
             mean = df[value_col].mean()
             std = df[value_col].std()
-            print(split_col_n, value_col, 'mean:', mean, 'STD', std)
+            # print(split_col_n, value_col, 'mean:', mean, 'STD', std)
             for cy in df["GEID"].unique():
                 sub_df = df[df["GEID"] == cy]
                 sub_mean = sub_df[value_col].mean()
                 # print('sub_mean', sub_mean, 'vs', mean, 'std', std, 'exclstd', excl_outlier_std)
                 if sub_mean > mean + excl_outlier_std * std or sub_mean < mean - excl_outlier_std * std:
                     print('dropping', cy, 'amount:', len(sub_df), 'mean:', sub_mean, 'vs', mean)
-                    vis.standard_hist_from_df(sub_df[value_col], projects_p + '/imgs/excl_surveys/', cy, sub_df['adm0_name'].iloc[0] + '_' + str(int(sub_df['DHSYEAR'].iloc[0])))
+                    if projects_p:
+                        vis.standard_hist_from_df(sub_df[value_col], projects_p + '/imgs/excl_surveys/', cy, sub_df['adm0_name'].iloc[0] + '_' + str(int(sub_df['DHSYEAR'].iloc[0])))
                     #iteratively removing surveys with high deviation of parent distribution (measured on mean)
                     df = df[df["GEID"] != cy]
     df = df[(df[value_col] >= df[value_col].mean() - 3.5 * df[value_col].std()) & (df[value_col] <= df[value_col].mean() + 3.5 * df[value_col].std())]
@@ -2953,7 +2954,8 @@ def stats_of_splits(df, value_col, split_col_n, force_split_col, split_dict):
     return split_dict
 
 
-def split_df_accounting_for_mean(df_in, sub_df_ind, value_col, force_split_col, split_col_n, img_path, excl_outlier, force_test_ind, force_into, since_year, n_splits=6, excl_outlier_std=1, assign_test=False):
+def split_df_accounting_for_mean(df_in, sub_df_ind, value_col, force_split_col, split_col_n, img_path, excl_outlier, force_test_ind, force_into, since_year, 
+                                 n_splits=6, projects_p=False, excl_outlier_std=1, assign_test=False):
     df = df_in.copy()
     df = df.dropna(subset=[value_col])
     # print('1', 'adm0_name' in df.columns)
@@ -2969,8 +2971,7 @@ def split_df_accounting_for_mean(df_in, sub_df_ind, value_col, force_split_col, 
         split_columns.append('adm0_name')
     
     df = df.dropna(subset=split_columns)
-    
-    data = prepare_df(df, sub_df_ind, img_path, excl_outlier, excl_outlier_std, split_col_n, value_col=value_col, since_year=since_year)
+    data = prepare_df(df, sub_df_ind, img_path, excl_outlier, excl_outlier_std, split_col_n, value_col=value_col, since_year=since_year, projects_p=projects_p)
     parent_mean, parent_std = data[value_col].agg(['mean', 'std'])
     # print('2', 'adm0_name' in df.columns)
     
@@ -3061,7 +3062,7 @@ def split_df_accounting_for_mean(df_in, sub_df_ind, value_col, force_split_col, 
     # print('splits', splits)
     # Create a dictionary to map group keys (tuple of values from groupby_cols) to their split assignments
     split_assignments = {tuple(row[split_columns]): i for i, country_group in enumerate(splits) for row in country_group}
-    print('spl', split_assignments)
+    # print('spl', split_assignments)
     # Update the 'Split' column in the input data with the split assignments
     data[split_col_n] = data[split_columns].apply(lambda x: f'split {split_assignments[tuple(x)]}', axis=1)
 
@@ -3094,12 +3095,24 @@ def split_df_accounting_for_mean(df_in, sub_df_ind, value_col, force_split_col, 
             scores = hu.statistical_weighted_test_set(df, split_col_n, value_col)
             test_split_n = scores[0][0]
         data.loc[data[split_col_n] == test_split_n, split_col_n] = 'test'
-    print('1', len(data), len(df_in))
+    # print('1', len(data), len(df_in))
     ldfin = len(df_in)
     df_in = pd.merge(df_in, data[["DHSID", split_col_n]], how="left", on='DHSID')
-    print(len(df_in))
+    # print(len(df_in))
     assert len(df_in) == ldfin
     return df_in
+
+
+def load_prepare_fs_df(file_p):
+    food_security_df = pd.read_csv(file_p)
+    print(food_security_df.head(10))
+    food_security_df = food_security_df[['adm2_name', 'adm1_name', 'adm0_name', 'month', 'year', 'CS', 'HA0']]
+    food_security_df['HA0'] = food_security_df['HA0'].fillna(0)
+    food_security_df['IPC + food help'] = food_security_df['CS'] + food_security_df['HA0']
+    food_security_df.drop(columns=['HA0'], inplace=True)
+    food_security_df = food_security_df.rename(columns={'CS': 'IPC'})
+    return food_security_df
+
         
 #Known issues:
 # - to_csv does alter encoding so that some chars are missrepresented (needs to be fixed in .csv to correctly load from preprocessing)
