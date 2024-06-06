@@ -61,6 +61,7 @@ def final_ds_droping_cols(df_in, drop_meta=False, drop_6_7_y_FS=True, drop_food_
     df = df_in.copy()
     df = df.reset_index(drop=False)
     incoming_cols = df.columns.tolist()
+    drop_meta_cols = []
     
     # drops all data below versions
     if drop_below_version:
@@ -421,7 +422,65 @@ def fold_generator_3_indices(data, split_type, n_splits=5, verbose=1, val_size=0
         # Yielding the indices for train, validation and test sets
         yield train_indices, val_indices, test_indices
         
+        
+def fold_generator_3_independent_indices(data, split_type, n_splits=5, verbose=1, val_size=0.2):
+    """
+    Generate indices for train, validation and test sets based on the specified split type.
 
+    Parameters:
+    data (DataFrame): The input dataset.
+    split_type (str): The type of split - 'country', 'survey', or 'year'.
+    n_splits (int): Number of splits/folds for the outer cross-validation.
+    verbose (int): Level of verbosity.
+    test_size (float): Proportion of the dataset to include in the test split.
+    val_size (float): Proportion of the dataset to include in the validation split.
+    """
+    if split_type == 'country':
+        split_col = 'Meta; adm0_gaul'
+    elif split_type == 'survey':
+        split_col = 'Meta; GEID_init'
+    elif split_type == 'year':
+        split_col = 'Meta; rounded year'
+        # Ensure 'Meta; rounded year' column is created outside this function or create here based on logic provided
+        data[split_col] = data.groupby('Meta; GEID_init')['Meta; year'].transform(lambda x: round(x.mean()))
+    elif split_type == 'unconditional':
+        kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+        for train_val_idx, test_idx in kf.split(data):
+            # Split the train_val indices into training and validation indices
+            train_idx, val_idx = train_test_split(train_val_idx, test_size=val_size, random_state=42)
+            yield data.index[train_idx], data.index[val_idx], data.index[test_idx]
+        return
+    else:
+        raise ValueError(f'Invalid split_type: {split_type}')
+
+    unique_combinations = data[split_col].drop_duplicates().values
+
+    # Adjust maximum n_splits based on the number of unique combinations
+    if len(unique_combinations) < n_splits or n_splits == -1:
+        n_splits = len(unique_combinations)
+        if verbose:
+            ic(f'Adjusting n_splits to the length of unique combinations ({n_splits}) for', split_type)
+
+    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+
+    for train_val_combinations, test_combinations in kf.split(unique_combinations):
+        # Split the train_val combinations into training and validation combinations
+        train_combinations, val_combinations = train_test_split(train_val_combinations, test_size=val_size, random_state=42)
+        
+        # Create masks for training, validation, and test sets
+        train_mask = data[split_col].isin(unique_combinations[train_combinations])
+        val_mask = data[split_col].isin(unique_combinations[val_combinations])
+        test_mask = data[split_col].isin(unique_combinations[test_combinations])
+        
+        # Get the indices for training, validation, and test sets
+        train_indices = data[train_mask].index.values
+        val_indices = data[val_mask].index.values
+        test_indices = data[test_mask].index.values
+        
+        # Yielding the indices for train, validation and test sets
+        yield train_indices, val_indices, test_indices
+        
+        
 def metrices_weighted_available_data(results_df, missing_mask, drop_perc=0, verbose=1):
     """
     Calculate the percentage of available data for each column in the dataset.
@@ -440,10 +499,10 @@ def metrices_weighted_available_data(results_df, missing_mask, drop_perc=0, verb
     
     res_d = defaultdict(dict)
     #Calculate means, std, weighted means and weighted std for grouped objects an by available data
-    for i in range(90, drop_perc - 10, -10):
+    for i in range(90, 0, -10):
         
         results_sub_df = results_df[(results_df["Available data"] >= i)]
-        print('asd', i, len(results_sub_df))
+        # print('asd', i, len(results_sub_df))
         mse = mean_squared_error(results_sub_df['Actual'], results_sub_df['Prediction'])
         rmse = np.sqrt(mse)
         r2 = r2_score(results_sub_df['Actual'], results_sub_df['Prediction'])
@@ -458,15 +517,19 @@ def metrices_weighted_available_data(results_df, missing_mask, drop_perc=0, verb
     
     #Create DataFrame from dictionary
     res_df = pd.DataFrame.from_dict(res_d, orient='index', columns=['RMSE', 'nRMSE', 'R2', 'Correlation']).reset_index()
-    res_df = res_df.reset_index()
     return res_df
 
-def create_history_figures(history, out_f, fold, write_out_f=False):
+def create_history_figures(history, out_f, fold, write_out_f=False, skip_metric=True):
     print(history.history.keys())
-    print(history.history['loss'])
+    try:
+        train_loss, train_metric, val_loss, val_metric = list(history.history.keys()) 
+    except ValueError as e:
+        print(history.history.keys())
+        print(history.history['loss'])
+        raise e
     plt.figure(figsize=(10, 6), facecolor='white')
-    plt.plot(history.history['loss'], label='Training Loss')
-    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.plot(history.history[train_loss], label='Training Loss')
+    plt.plot(history.history[val_loss], label='Validation Loss')
     plt.title('Loss Curve', fontsize=20)
     plt.xlabel('Epochs', fontsize=16)
     plt.ylabel('Loss', fontsize=16)
@@ -474,17 +537,18 @@ def create_history_figures(history, out_f, fold, write_out_f=False):
     if write_out_f:
         plt.savefig(f'{out_f}loss_curve_fold{fold+1}.png')
     plt.show()
-        
-    plt.figure(figsize=(10, 6), facecolor='white')
-    plt.plot(history.history['root_mean_squared_error'], label='Training RMSE')
-    plt.plot(history.history['val_root_mean_squared_error'], label='Validation RMSE')
-    plt.title('RMSE Curve', fontsize=20)
-    plt.xlabel('Epochs', fontsize=16)
-    plt.ylabel('RMSE', fontsize=16)
-    plt.legend(fontsize=15)
-    if write_out_f:
-        plt.savefig(f'{out_f}rmse_curve_fold{fold+1}.png')
-    plt.show()
+    
+    if not skip_metric:
+        plt.figure(figsize=(10, 6), facecolor='white')
+        plt.plot(history.history[train_metric], label='Training RMSE')
+        plt.plot(history.history[val_metric], label='Validation RMSE')
+        plt.title('RMSE Curve', fontsize=20)
+        plt.xlabel('Epochs', fontsize=16)
+        plt.ylabel('RMSE', fontsize=16)
+        plt.legend(fontsize=15)
+        if write_out_f:
+            plt.savefig(f'{out_f}rmse_curve_fold{fold+1}.png')
+        plt.show()
     
 
 def create_scatterplot(df, out_f):    
@@ -493,13 +557,14 @@ def create_scatterplot(df, out_f):
     r2 = r2_score(df['Actual'], df['Prediction'])
     corr = np.corrcoef(df['Actual'], df['Prediction'])[0, 1]
     nrmse = rmse / np.std(df['Actual'])
+    n = len(df)
     plt.figure(figsize=(10, 6), facecolor='white')
     plt.scatter(df['Actual'], df['Prediction'], alpha=0.5)
     plt.xlabel('Actual', fontsize=16)
     plt.ylabel('Prediction', fontsize=16)
     plt.title(f'Prediction vs. Actual', fontsize=20)
     plt.plot([min(df['Actual']), max(df['Actual'])], [min(df['Actual']), max(df['Actual'])], color='red')
-    plt.text(min(df['Actual']), max(df['Actual']), f'R²: {r2:.2f}\nRMSE: {rmse:.2f}\nnRMSE: {nrmse:.2f}\nCorr: {corr:.2f}', verticalalignment='top', horizontalalignment='left', backgroundcolor='white', fontsize=15)
+    plt.text(min(df['Actual']), max(df['Actual']), f'n: {n}\nR²: {r2:.2f}\nRMSE: {rmse:.2f}\nnRMSE: {nrmse:.2f}\nCorr: {corr:.2f}', verticalalignment='top', horizontalalignment='left', backgroundcolor='white', fontsize=15)
     plt.savefig(f"{out_f}")
 
 

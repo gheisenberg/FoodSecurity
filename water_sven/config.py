@@ -7,7 +7,7 @@ from tensorflow.keras import metrics
 # list of gpus to use
 # (only use 1 GPU!) Otherwise I will kill your process!
 # We all need to calculate on this machine - might get lowered to one, if there are bottlenecks!
-gpus = [0,1,2]
+gpus = [2]
 
 
 ########################################################################################################################
@@ -16,7 +16,7 @@ gpus = [0,1,2]
 #handles verbosity of thzooe program (use 1 or above to get feedback!)
 verbose = False
 # 'debug' for debugging, 'info' for a bit verbosity, 'warning' for less verbosity
-logging = 'info'
+logging = 'debug'
 
 
 ########################################################################################################################
@@ -33,7 +33,7 @@ trainHistory_subname = 'trainH_sustainbench/'
 labels_f = prj_folder + '/inputs/sustainbench_women_bmi2.csv'
 # img_path = '/mnt/datadisk/data/Sentinel2/preprocessed/water_new/'
 # img_path = ['/mnt/datadisk2/preprocessed/R/996x996_c432_fillmean_m2.5_rlocal channel mean_clipvoutlier_normZ_f18977/',]
-img_path = '/mnt/datadisk2/preprocessed/all/996x996_c432_fillmean_m2.5_rlocal channel mean_clipvoutlier_normZ_f31213/'
+img_path = '/mnt/datadisk2/preprocessed/all/996x996_c432_fillmean_rlocal channel mean_clipvoutlier2.5_normZ_f37363/'
 #use directory with multiple folders
 load_subfolders = False
 tmp_p = '/mnt/datadisk2/tmp/'
@@ -69,8 +69,8 @@ splits_l = [
     # 'split: random all',
     # 'split: random all excluded drop surveys (ZAuEG)',
     # 'split: random all excluded outlier surveys random',
-    # 'split: random all 2012plus',
-    'split: out of country year all 2012plus excluded outlier surveys',
+    'split: random all 2012plus excluded outlier surveys',
+    # 'split: out of country year all 2012plus excluded outlier surveys',
    ]
 
 # define the label column names with an appended number and specify a normalization, upper and lower std multiples to drop outliers
@@ -181,7 +181,7 @@ early_stopping = (True, 6)
 
 
 #use an int to limit data on that amount or False to use full dataset (and not testing mode)
-test_mode = False
+test_mode = 1000
 #only uses the first split for validation (way faster - for hyperparameter optimization and co)
 dont_use_crossval = False
 #set to True if denormalized (etc.) data should be reported

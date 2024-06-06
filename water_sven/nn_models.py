@@ -1,8 +1,8 @@
-from keras.layers.core import Dense, Dropout, Flatten
-from keras.layers import GlobalMaxPooling2D, GlobalAveragePooling2D, preprocessing
+from tensorflow.keras.layers import Dense, Dropout, Flatten
+from tensorflow.keras.layers import GlobalMaxPooling2D, GlobalAveragePooling2D
+from tensorflow.keras import preprocessing
 import inspect
 import tensorflow as tf
-from keras.applications.vgg16 import VGG16
 import numpy as np
 
 #own imports

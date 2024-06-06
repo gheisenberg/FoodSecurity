@@ -22,17 +22,18 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 from tensorflow.keras import optimizers, layers
 from tensorflow.keras import callbacks
-from tensorflow.keras.layers.experimental import preprocessing
+from tensorflow.keras import preprocessing
 import pickle
 import time
 from functools import partial
 from sklearn.utils import class_weight
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import scipy.stats as stats
-import tensorflow_addons as tfa
+# import tensorflow_addons as tfa
 import scipy
 import math
 from math import radians, cos, sin, asin, sqrt
+import ssl
 
 # from tensorflow.python.framework.ops import disable_eager_execution
 # disable_eager_execution()
@@ -52,7 +53,7 @@ logger.warning('Logging level: ' + cfg.logging)
 #####This needs to be done before using tensorflow or keras (e.g. importing losses in config)
 ###Some general information and settings
 # print some general information
-logger.info('tf keras v %s', tf.keras.__version__)
+# logger.info('tf keras v %s', tf.keras.__version__)
 logger.info('tf v %s', tf.__version__)
 # to do: try non eager execution graph?
 logger.info('tf eager execution %s', tf.executing_eagerly())
@@ -71,8 +72,8 @@ logger.info("cuDNN Version: %s", tf_build_info.build_info['cudnn_version'])
 
 # from tensorflow.keras.mixed_precision import set_global_policy
 
-#to do: replace tf.float32 with tf.float16/mixed precision
-# set_global_policy('mixed_float16')
+#to do: replace tf.float32 with tf.float32/mixed precision
+# set_global_policy('mixed_float32')
 # logger.info('Mixed precision enabled to speed up code')
 
 
@@ -258,8 +259,16 @@ def model_loader(num_labels, type_m, shape, **aug_d):
         model (Keras model): e.g. VGG19 or resnet50 if defined with custom top layers
     """
     cnn_settings_d = cfg.cnn_settings_d
-    cnn_settings_d['input_shape'] = shape
-    logger.debug('cnn settings d', cnn_settings_d)
+    logger.debug(f'shape {shape}')
+    
+    input_tensor = layers.Input(shape=shape, dtype='float32')  # Adjust channels if needed
+    cnn_settings_d['input_tensor'] = input_tensor
+    logger.debug(f'cnn settings d {cnn_settings_d}')
+        
+    ### New
+    # Temporarily disable SSL certificate verification
+    ssl._create_default_https_context = ssl._create_unverified_context
+    
     if cfg.model_name == 'resnet152':
         base_model = tf.keras.applications.ResNet152V2(**cnn_settings_d)
     elif cfg.model_name == 'resnet50':
@@ -296,8 +305,18 @@ def model_loader(num_labels, type_m, shape, **aug_d):
         x = aug_layer(input_layer)
         x = model(x)
         model = tf.keras.Model(inputs=input_layer, outputs=x)
-        logger.debug('final model with aug', model)
+        logger.debug('final model with aug %', model)
     return model
+
+def ensure_shape(x, y, input_shape):
+    x = tf.ensure_shape(x, input_shape)
+    return x, y
+
+def cast_types(images, labels):
+    # Cast labels to float32
+    labels = tf.cast(labels, tf.float32)
+    images = tf.cast(images, tf.float32)
+    return images, labels
 
 
 def dataset_creator(train_df, validation_df, test_df, prediction_type, num_labels, cache_p, input_shape, channel_l,
@@ -330,10 +349,16 @@ def dataset_creator(train_df, validation_df, test_df, prediction_type, num_label
         output_signature = tf.TensorSpec(shape=input_shape, dtype=tf.float32)
         ds = files.map(lambda x: tf.py_function(func, [x], output_signature),
                        num_parallel_calls=tf.data.AUTOTUNE)
+
         if cfg.verbose:
             logger.debug('Read imgs ds %s', ds)
         assert len(ds) == len(labels)
         ds = tf.data.Dataset.zip((ds, labels))
+        
+        # Map the function to the dataset
+        ds = ds.map(lambda x, y: ensure_shape(x, y, input_shape))
+        ds = ds.map(cast_types)
+        
         if cfg.verbose:
             logger.debug('Zipped ds %s %s', ds, len(ds))
         # significantly improves speed! ~25%
@@ -721,6 +746,13 @@ def augmentation(**kwargs):
     return data_augmentation_layers
 
 
+def get_dataset_size(dataset):
+    count = 0
+    for _ in dataset:
+        count += 1
+    return count
+
+
 def evaluate_dataset(model, evaluate_ds, steps_per_epoch_evaluate, run_path, label_mapping, add_params, scaler,
                      label_d, split, evaluate_df, additional_reports_d, add_name='', evaluate_mode='test',
                      label_col_in=False):
@@ -735,7 +767,22 @@ def evaluate_dataset(model, evaluate_ds, steps_per_epoch_evaluate, run_path, lab
     evaluate_df = evaluate_df.copy()
     # Create Confusion matrix for the evaluate dataset
     # Get np array of predicted labels and true labels for evaluate dataset
-    evaluate_pred = model.predict(evaluate_ds, steps=steps_per_epoch_evaluate)
+    print(evaluate_ds, len(evaluate_ds), steps_per_epoch_evaluate)
+    total_batches = get_dataset_size(evaluate_ds)
+    print("Total batches:", total_batches)
+    
+    evaluate_ds2 = evaluate_ds.batch(cfg.batch_size, drop_remainder=True)
+    total_batches = get_dataset_size(evaluate_ds2)
+    print("Total batches:", total_batches)
+    steps_per_epoch_evaluate2 = total_batches  # Ensure this matches the output from one of the methods above
+    print(evaluate_ds2, len(evaluate_ds2), steps_per_epoch_evaluate)
+    # for i, (images, labels) in enumerate(evaluate_ds):
+    #     print(f"Batch {i+1}: {images.shape, labels.shape} samples")
+    try:
+        evaluate_pred = model.predict(evaluate_ds, steps=steps_per_epoch_evaluate)
+    except ValueError as e:
+        print(e)
+        evaluate_pred = model.predict(evaluate_ds2, steps=steps_per_epoch_evaluate2)
     evaluate_true = np.concatenate([y for x, y in evaluate_ds], axis=0)
     if cfg.type_m == 'categorical':
         evaluate_pred = np.argmax(evaluate_pred, axis=1)
@@ -1226,7 +1273,7 @@ def main():
             class_weights = dict(enumerate(class_weights))
         else:
             num_labels = 1
-            class_weights = False
+            class_weights = None
 
         split_dfs = [(spdf[split_col].iloc[0], spdf) for spdf in split_dfs]
         # sort by name
@@ -1294,7 +1341,7 @@ def main():
                 val_nr = 0
             test_nr += 1
 
-            modelcheckpoint_path = modelcheckpoint_p + f'chkpt_{model_name}'
+            modelcheckpoint_path = modelcheckpoint_p + f'chkpt_{model_name}.weights.h5'
             if os.path.exists(run_summary_splits_f):
                 run_summary_splits_df = pd.read_csv(run_summary_splits_f)
             else:
@@ -1343,9 +1390,9 @@ def main():
                 metrics_l = []
                 for m in cfg.metrics_l:
                     metrics_l.append(m())
-                if cfg.type_m == 'categorical':
-                    metrics_l.append(tfa.metrics.F1Score(num_classes=num_labels,
-                                                         average='micro'))
+                # if cfg.type_m == 'categorical':
+                #     metrics_l.append(tfa.metrics.F1Score(num_classes=num_labels,
+                #                                          average='micro'))
                 model = model_loader(num_labels, cfg.type_m, input_shape, **augmentation_d)
                 # if cfg.load_model_weights:
                 #     logger.warning(f"This has not been adjusted to split stuff and only {model_name} will be"
@@ -1380,6 +1427,7 @@ def main():
                         steps_per_epoch_train, steps_per_epoch_val, steps_per_epoch_test)
             logger.info('train shape %s', train_ds.element_spec)
             logger.info('val shape %s', validation_ds.element_spec)
+
             try:
                 history = model.fit(
                     train_ds,
@@ -1389,7 +1437,8 @@ def main():
                     callbacks=callbacks_l,
                     steps_per_epoch=steps_per_epoch_train,
                     validation_steps=steps_per_epoch_val,
-                    max_queue_size=40)
+                    # max_queue_size=40,
+                    )
             except KeyboardInterrupt:
                 history = False
                 pass
@@ -1446,7 +1495,7 @@ def main():
                 model.load_weights(modelcheckpoint_path)
             print('save')
             # Save model
-            model.save(os.path.join(run_path, f'Model_{model_name}'), save_format='h5')
+            model.save(os.path.join(run_path, f'Model_{model_name}.h5'))
 
             if cfg.verbose:
                 logger.info("Evaluating on test data %s", test_ds)
@@ -1459,14 +1508,15 @@ def main():
                 additional_reports_d['test_' + metrics_l[nr - 1].name] = r
 
             print('evaluate')
-            additional_reports_d, sk_metrics_d, validation_f_df = \
-                evaluate_dataset(model, validation_ds, steps_per_epoch_val, run_path, label_mapping, add_params,
-                                 scaler, label_d, model_name, validation_df, additional_reports_d,
-                                 evaluate_mode='val')
-            print('evaluate2')
-            additional_reports_d, sk_metrics_d, test_f_df = \
-                evaluate_dataset(model, test_ds, steps_per_epoch_test, run_path, label_mapping, add_params,
-                                 scaler, label_d, model_name, test_df, additional_reports_d, label_col_in=label_name)
+            with strategy.scope():
+                additional_reports_d, sk_metrics_d, validation_f_df = \
+                    evaluate_dataset(model, validation_ds, steps_per_epoch_val, run_path, label_mapping, add_params,
+                                    scaler, label_d, model_name, validation_df, additional_reports_d,
+                                    evaluate_mode='val')
+                print('evaluate2')
+                additional_reports_d, sk_metrics_d, test_f_df = \
+                    evaluate_dataset(model, test_ds, steps_per_epoch_test, run_path, label_mapping, add_params,
+                                    scaler, label_d, model_name, test_df, additional_reports_d, label_col_in=label_name)
             print('evaluate finished')
             val_dfs_l.append(validation_f_df)
             test_dfs_l.append(test_f_df)
