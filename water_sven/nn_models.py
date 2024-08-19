@@ -74,4 +74,3 @@ def add_classification_top_layer(model, out_classes, neurons_l, type_m='categori
 
     model = tf.keras.models.Model(inputs=model.input, outputs=out)
     return model
-

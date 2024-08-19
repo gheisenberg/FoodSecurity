@@ -373,7 +373,7 @@ def fold_generator(data, split_type, n_splits=5, verbose=1):
 
 def fold_generator_3_indices(data, split_type, n_splits=5, verbose=1, val_size=0.2):
     """
-    Generate indices for train, validation and test sets based on the specified split type.
+    Generate indices for train, validation and test sets based on the specified split type. None independent indices (train and val may be from the same country/year/survey).
 
     Parameters:
     data (DataFrame): The input dataset.
@@ -425,7 +425,7 @@ def fold_generator_3_indices(data, split_type, n_splits=5, verbose=1, val_size=0
         
 def fold_generator_3_independent_indices(data, split_type, n_splits=5, verbose=1, val_size=0.2):
     """
-    Generate indices for train, validation and test sets based on the specified split type.
+    Generate indices for train, validation and test sets based on the specified split type. Independent indices (train and val may not be from the same country/year/survey).
 
     Parameters:
     data (DataFrame): The input dataset.
@@ -611,8 +611,11 @@ def create_correlation_matrix(df, file_n=False):
     # Calculate the correlation matrix
     corr = df.corr()
 
+    print(df.columns)
+    print(corr.columns)
     # Calculate the count of non-null values for each pair of columns
-    count_non_null = df.notnull().astype('int').T.dot(df.notnull())
+    count_non_null = df.notnull().astype('int').T.dot(df.notnull()).astype(float)
+    print(count_non_null.columns)
 
     sns.set_style("whitegrid")
     plt.figure(figsize=(len(df.columns) - len(df.columns)/4, len(df.columns) - len(df.columns)/4))
@@ -627,8 +630,10 @@ def create_correlation_matrix(df, file_n=False):
     sns.heatmap(corr, annot=True, cmap='RdBu', fmt=".2f", mask=mask_upper, cbar=False)
 
     # Draw the heatmap with the mask and correct aspect ratio for the upper triangle (count of non-null values)
-    sns.heatmap(count_non_null, annot=True, cmap='RdBu', fmt="d", mask=mask_lower, cbar=False)
+    sns.heatmap(count_non_null, annot=True, cmap='RdBu', fmt=".0f", mask=mask_lower, cbar=False)
+
     if file_n:
         plt.savefig(file_n)
 
     plt.show()
+

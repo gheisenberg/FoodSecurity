@@ -73,7 +73,7 @@ def plot_history(history, save_path, type_m, verbose=1):
             #plt.show()
             #Save
             plt.tight_layout()
-            plt.savefig(save_path + key)
+            plt.savefig(save_path + ' ' + key)
             plt.close()
             #asd
 
@@ -564,6 +564,7 @@ def zero_one_normalization(data):
 
 
 def main():
+    """for evaluating in hindsight"""
     run_path = '/mnt/datadisk/data/Projects/water/trainH_XV/split__out_of_country_all_w_TIF/PCA_w_location_weighting_all2/996x996_c432_fillmean_m2.5_rlocal_channel_mean_clipvoutlier_normZ_f31213vgg19_wimagenet_unfl100_d0_lr0.0001_momentum0.9_optimizerSGD__m_vgg19_2/'
 
     names = []

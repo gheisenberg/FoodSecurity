@@ -15,6 +15,7 @@ import warnings
 import shutil
 import geo_utils as gu
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def channel_wise_means(file, height, width, channel_l, replace_nan_value, clipping_values, std_multiplier):
     array, nulls, profile = gu.load_geotiff(file, height, width, channel_l, replace_nan_value, clipping_values,
@@ -188,6 +189,9 @@ def main():
             filenames = list(path_s)
         else:
             filenames = hu.files_in_folder(cfg.file_p)
+        
+        if cfg.restrict_files_to_amount:
+            filenames = filenames[:cfg.restrict_files_to_amount]
 
         ###
         for geotiff_normalization in cfg.geotiff_normalization:

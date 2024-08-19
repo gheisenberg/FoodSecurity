@@ -14,39 +14,83 @@ import config as cfg
 
 def setup_logger(logging_level):
     logger = logging.getLogger('my_app')
-    logger.setLevel(logging.DEBUG)
 
     # Remove any existing handlers from the logger
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
 
-    # Create a console handler for logging to stdout
-    console_handler = logging.StreamHandler(sys.stdout)
-    if logging_level == 'debug':
-        logger.setLevel(logging.DEBUG)  # Set the logger level
-        console_handler.setLevel(logging.DEBUG)
-    elif logging_level == 'info':
-        logger.setLevel(logging.INFO)  # Set the logger level
-        console_handler.setLevel(logging.INFO)
-    elif logging_level == 'warning':
-        logger.setLevel(logging.WARNING)  # Set the logger level
-        console_handler.setLevel(logging.WARNING)
-    else:
-        logger.setLevel(logging.ERROR)  # Set the logger level
-        console_handler.setLevel(logging.ERROR)
+    # Check if the logger already has handlers to avoid adding duplicate ones
+    if not logger.hasHandlers():
+        # Create a console handler for logging to stdout
+        console_handler = logging.StreamHandler(sys.stdout)
+        
+        if logging_level == 'debug':
+            logger.setLevel(logging.DEBUG)  # Set the logger level
+            console_handler.setLevel(logging.DEBUG)
+        elif logging_level == 'info':
+            logger.setLevel(logging.INFO)  # Set the logger level
+            console_handler.setLevel(logging.INFO)
+        elif logging_level == 'warning':
+            logger.setLevel(logging.WARNING)  # Set the logger level
+            console_handler.setLevel(logging.WARNING)
+        else:
+            logger.setLevel(logging.ERROR)  # Set the logger level
+            console_handler.setLevel(logging.ERROR)
 
-    # Set up the color formatter
-    color_formatter = colorlog.ColoredFormatter(
-        fmt='%(log_color)s %(levelname)s: %(message)s',
-        datefmt=None,
-        reset=True,
-    )
+        # Set up the color formatter
+        color_formatter = colorlog.ColoredFormatter(
+            fmt='%(log_color)s %(levelname)s: %(message)s',
+            datefmt=None,
+            reset=True,
+        )
 
-    console_handler.setFormatter(color_formatter)
-    logger.addHandler(console_handler)
+        console_handler.setFormatter(color_formatter)
+        logger.addHandler(console_handler)
+
+    # Prevent log messages from being propagated to the root logger
+    logger.propagate = False
 
     return logger
+
+# Example usage
+# Assuming cfg.logging is defined and contains the logging level as a string, e.g., 'debug'
 logger = setup_logger(cfg.logging)
+
+# def setup_logger(logging_level):
+#     logger = logging.getLogger('my_app')
+#     # logger.setLevel(logging.DEBUG)
+
+#     # Remove any existing handlers from the logger
+#     for handler in logger.handlers[:]:
+#         logger.removeHandler(handler)
+
+#     # Create a console handler for logging to stdout
+#     console_handler = logging.StreamHandler(sys.stdout)
+#     if logging_level == 'debug':
+#         logger.setLevel(logging.DEBUG)  # Set the logger level
+#         console_handler.setLevel(logging.DEBUG)
+#     elif logging_level == 'info':
+#         logger.setLevel(logging.INFO)  # Set the logger level
+#         console_handler.setLevel(logging.INFO)
+#     elif logging_level == 'warning':
+#         logger.setLevel(logging.WARNING)  # Set the logger level
+#         console_handler.setLevel(logging.WARNING)
+#     else:
+#         logger.setLevel(logging.ERROR)  # Set the logger level
+#         console_handler.setLevel(logging.ERROR)
+
+#     # Set up the color formatter
+#     color_formatter = colorlog.ColoredFormatter(
+#         fmt='%(log_color)s %(levelname)s: %(message)s',
+#         datefmt=None,
+#         reset=True,
+#     )
+
+#     console_handler.setFormatter(color_formatter)
+#     logger.addHandler(console_handler)
+
+#     return logger
+# logger = setup_logger(cfg.logging)
 
 
 def paths_from_base_path(base_path, folders_d, add_d=False, verbose=1):

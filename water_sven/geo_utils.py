@@ -12,6 +12,7 @@ from sklearn.cluster import DBSCAN
 def read_geotiff_float(file, channel_l=False):
     if isinstance(file, tf.Tensor):
         file = bytes.decode(file.numpy())
+    # note with rasterio.open(file) as img - read() uses indexing starting at 1
     with rasterio.open(file) as img:
         if not channel_l:
             array = img.read().astype("float32")

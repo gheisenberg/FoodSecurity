@@ -79,13 +79,14 @@ logger.info("cuDNN Version: %s", tf_build_info.build_info['cudnn_version'])
 
 # do not assign complete gpu-memory but grow it as needed
 # allows to run multiple models at once (otherwise whole gpu memory gets allocated/gpu gets blocked)
-gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-    try:
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-    except RuntimeError as e:
-        raise e
+# gpus = tf.config.experimental.list_physical_devices('GPU')
+
+# if gpus:
+#     try:
+#         for gpu in gpus:
+#             tf.config.experimental.set_memory_growth(gpu, True)
+#     except RuntimeError as e:
+#         raise e
 
 ###Define Model and MirroredStrategy (for mulit-gpu usage) - shall be initiated at the beginning of the program
 # Create a MirroredStrategy and pass the GPUs
@@ -261,6 +262,7 @@ def model_loader(num_labels, type_m, shape, **aug_d):
     cnn_settings_d = cfg.cnn_settings_d
     logger.debug(f'shape {shape}')
     
+    
     input_tensor = layers.Input(shape=shape, dtype='float32')  # Adjust channels if needed
     cnn_settings_d['input_tensor'] = input_tensor
     logger.debug(f'cnn settings d {cnn_settings_d}')
@@ -308,6 +310,9 @@ def model_loader(num_labels, type_m, shape, **aug_d):
         logger.debug('final model with aug %', model)
     return model
 
+
+
+
 def ensure_shape(x, y, input_shape):
     x = tf.ensure_shape(x, input_shape)
     return x, y
@@ -322,13 +327,14 @@ def cast_types(images, labels):
 def dataset_creator(train_df, validation_df, test_df, prediction_type, num_labels, cache_p, input_shape, channel_l,
                     **augargs):
     ds_l = []
+    steps_per_epoch_l = []
     for typ, df in zip(['train', 'validation', 'test'], [train_df, validation_df, test_df]):
-        if typ == 'train':
-            steps_per_epoch_train = math.ceil(len(df) / cfg.batch_size)
-        elif typ == 'validation':
-            steps_per_epoch_val = math.ceil(len(df) / cfg.batch_size)
-        elif typ == 'test':
-            steps_per_epoch_test = math.ceil(len(df) / cfg.batch_size)
+        # if typ == 'train':
+        #     steps_per_epoch_train = math.ceil(len(df) / cfg.batch_size)
+        # elif typ == 'validation':
+        #     steps_per_epoch_val = math.ceil(len(df) / cfg.batch_size)
+        # elif typ == 'test':
+        #     steps_per_epoch_test = math.ceil(len(df) / cfg.batch_size)
         files = tf.data.Dataset.from_tensor_slices(tf.constant(df['path']))
         labels = np.array(df['label'])
         if prediction_type == 'regression':
@@ -368,15 +374,22 @@ def dataset_creator(train_df, validation_df, test_df, prediction_type, num_label
             # buffer_size does not seem to influence the performance
             # to do: set on True again?!
             ds = ds.shuffle(cfg.batch_size, reshuffle_each_iteration=True)
-        ds = ds.batch(cfg.batch_size)
+        ds = ds.batch(cfg.batch_size)#, drop_remainder=True)
         # does not seem to have an influence when used with cached datasets
         ds = ds.prefetch(tf.data.AUTOTUNE)
         ds_l.append(ds)
+        
+        # get the steps per epoch from ds
+        # steps_per_epoch = len(df) // cfg.batch_size
+        # total_batches = get_dataset_size(evaluate_ds)
+        steps_per_epoch = tf.data.experimental.cardinality(ds).numpy()
+        steps_per_epoch_l.append(steps_per_epoch)
+        
     if cfg.verbose:
         logger.debug('Final ds %s', ds)
         logger.debug('steps p epoch train, val, test %s %s %s',
-                     steps_per_epoch_train, steps_per_epoch_val, steps_per_epoch_test)
-    return ds_l[0], ds_l[1], ds_l[2], steps_per_epoch_train, steps_per_epoch_val, steps_per_epoch_test
+                     steps_per_epoch_l[0], steps_per_epoch_l[1], steps_per_epoch_l[2])
+    return ds_l[0], ds_l[1], ds_l[2], steps_per_epoch_l[0], steps_per_epoch_l[1], steps_per_epoch_l[2]
 
 
 def special_replace(row, replace_d, col, labels_df, drop):
@@ -471,7 +484,7 @@ def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0
     if cfg.test_mode:
         labels_df = labels_df[:cfg.test_mode]
     # create visualization for incoming labels before dropping values
-    visualizations.standard_hist_from_df(labels_df[col], run_path, '', title_in=col)
+    visualizations.standard_hist_from_df(labels_df[col], run_path, '', title_in=col, xlim=False)
     visualizations.standard_hist_from_df(labels_df[col], run_path, '', title_in=col + ' wo xlim', xlim=False)
 
     cols = ['GEID', 'DHSID', 'path', split, col, "households", "adm0_name", "adm1_name", "adm2_name",
@@ -492,11 +505,12 @@ def load_labels(file, col, run_path, base_path=False, mode='categorical', drop=0
         if not labels_df[(labels_df['path'].isna()) & (labels_df['label'].notna())].empty:
             labels_df[(labels_df['path'].isna()) & (labels_df['label'].notna())].to_csv(
                 cfg.prj_folder + 'missing_files.csv', index=False)
+    
     # drop all which have no label, no path or no split
     labels_df = labels_df.dropna(subset=['path', 'label', split])
     logger.debug('labels df after dropping na values in path, label and split\n%s', labels_df)
     logger.debug('Missing values in label df after dropping na values\n%s', labels_df[labels_df.isna().any(axis=1)])
-    visualizations.standard_hist_from_df(labels_df[col], run_path, '', title_in=col + ' after dropping')
+    visualizations.standard_hist_from_df(labels_df[col], run_path, '', title_in=col + ' after dropping', xlim=False)
 
     label_mapping = {}
     add_params = {}
@@ -765,40 +779,133 @@ def evaluate_dataset(model, evaluate_ds, steps_per_epoch_evaluate, run_path, lab
     logger.debug('eval df\n%s', evaluate_df)
     logger.debug(evaluate_df.columns)
     evaluate_df = evaluate_df.copy()
+    
     # Create Confusion matrix for the evaluate dataset
     # Get np array of predicted labels and true labels for evaluate dataset
-    print(evaluate_ds, len(evaluate_ds), steps_per_epoch_evaluate)
-    total_batches = get_dataset_size(evaluate_ds)
-    print("Total batches:", total_batches)
-    
-    evaluate_ds2 = evaluate_ds.batch(cfg.batch_size, drop_remainder=True)
-    total_batches = get_dataset_size(evaluate_ds2)
-    print("Total batches:", total_batches)
-    steps_per_epoch_evaluate2 = total_batches  # Ensure this matches the output from one of the methods above
-    print(evaluate_ds2, len(evaluate_ds2), steps_per_epoch_evaluate)
-    # for i, (images, labels) in enumerate(evaluate_ds):
-    #     print(f"Batch {i+1}: {images.shape, labels.shape} samples")
-    try:
-        evaluate_pred = model.predict(evaluate_ds, steps=steps_per_epoch_evaluate)
-    except ValueError as e:
-        print(e)
-        evaluate_pred = model.predict(evaluate_ds2, steps=steps_per_epoch_evaluate2)
+    evaluate_pred = model.predict(evaluate_ds, steps=steps_per_epoch_evaluate)
     evaluate_true = np.concatenate([y for x, y in evaluate_ds], axis=0)
-    if cfg.type_m == 'categorical':
-        evaluate_pred = np.argmax(evaluate_pred, axis=1)
-        evaluate_true = np.argmax(evaluate_true, axis=1)
-    else:
+
+
+    # # Create a synthetic dataset
+    # synthetic_data = tf.data.Dataset.from_tensor_slices((
+    #     np.random.rand(100, 3, 100, 100).astype(np.float32),
+    #     np.random.rand(100, 1).astype(np.float32)
+    # )).batch(10)
+
+    # # Test the model with synthetic data
+    # for x, y in synthetic_data.take(1):
+    #     print("Synthetic input batch shape:", x.shape)
+    #     print("Synthetic target batch shape:", y.shape)
+    #     pred = model.predict_on_batch(x)
+    #     print("Synthetic batch prediction shape:", pred.shape)
+    #     print("Synthetic batch prediction:", pred)
+
+    # total_batches = sum(1 for _ in evaluate_ds)
+    # print("Total batches:", total_batches)
+    
+    # # Test the model with a single batch
+    # for x, y in evaluate_ds.take(1):
+    #     print("First batch input shape:", x.shape)
+    #     print("First batch target shape:", y.shape)
+    #     pred = model.predict_on_batch(x)
+    #     print("Single batch prediction shape:", pred.shape)
+    #     print("Single batch prediction:", pred)
+
+    # # Collect predictions for each batch
+    # evaluate_preds = []
+    # for x, y in evaluate_ds:
+    #     pred = model.predict_on_batch(x)
+    #     if pred.size > 0:
+    #         evaluate_preds.append(pred)
+    #     else:
+    #         print("Empty prediction for batch. Input batch shape:", x.shape)
+
+    # Check if evaluate_preds is not empty before concatenation
+    # if evaluate_preds:
+    #     evaluate_pred = np.concatenate(evaluate_preds, axis=0)
+    # else:
+    #     raise ValueError("No valid predictions were generated.")
+
+    # evaluate_true = np.concatenate([y for x, y in evaluate_ds], axis=0)
+    
+    # print("evaluate_pred shape:", evaluate_pred.shape)
+    # print("evaluate_true shape:", evaluate_true.shape)
+    # print("evaluate_pred:", evaluate_pred)
+    # print("evaluate_true:", evaluate_true[:5])
+    
+    if evaluate_pred.shape[-1] == 1:
         evaluate_pred = np.array(evaluate_pred).reshape(-1)
         evaluate_true = np.array(evaluate_true).reshape(-1)
+    
+    # print("evaluate_pred length:", len(evaluate_pred))
+    # print("evaluate_true length:", len(evaluate_true))
     assert len(evaluate_pred) == len(evaluate_true)
+
+
+# Example call to the function (ensure to pass actual parameters)
+# evaluate_dataset(model, validation_ds, steps_per_epoch_val, run_path, label_mapping, add_params, cfg)
+
+    # # Create Confusion matrix for the evaluate dataset
+    # # Get np array of predicted labels and true labels for evaluate dataset
+    # print(evaluate_ds, len(evaluate_ds), steps_per_epoch_evaluate)
+    # total_batches = get_dataset_size(evaluate_ds)
+    # print("Total batches:", total_batches)
+    # for x, y in evaluate_ds:
+    #     print(x.shape, y.shape)
+
+    #     # Collect predictions for each batch
+    # evaluate_preds = []
+    # for x, y in evaluate_ds:
+    #     pred = model.predict_on_batch(x)
+    #     print(pred.shape, x.shape)  # Print the shape of each prediction
+    #     evaluate_preds.append(pred)
+
+    # # Concatenate all batch predictions
+    # evaluate_pred = np.concatenate(evaluate_preds, axis=0)
+    # evaluate_true = np.concatenate([y for x, y in evaluate_ds], axis=0)
+    
+    # # evaluate_pred = np.concatenate([model.predict_on_batch(x) for x, y in evaluate_ds], axis=0)
+    # # evaluate_true = np.concatenate([y for x, y in evaluate_ds], axis=0)
+
+    # print(evaluate_pred.shape, evaluate_true.shape)
+    # print(evaluate_pred)
+    # print(evaluate_true[:5])
+
+    # if cfg.type_m == 'categorical':
+    #     evaluate_pred = np.argmax(evaluate_pred, axis=1)
+    #     evaluate_true = np.argmax(evaluate_true, axis=1)
+    # else:
+    #     evaluate_pred = np.array(evaluate_pred).reshape(-1)
+    #     evaluate_true = np.array(evaluate_true).reshape(-1)
+
+    # print(len(evaluate_pred), len(evaluate_true))
+    # assert len(evaluate_pred) == len(evaluate_true)
+
+    
+    # # evaluate_pred = model.predict(evaluate_ds, steps=steps_per_epoch_evaluate)
+    # evaluate_pred = model.predict(evaluate_ds, batch_size=cfg.batch_size, steps=steps_per_epoch_evaluate)
+    # evaluate_true = np.concatenate([y for x, y in evaluate_ds], axis=0)
+    # print(evaluate_pred.shape, evaluate_true.shape)
+    # print(evaluate_pred)
+    # print(evaluate_true[:5])
+    # if cfg.type_m == 'categorical':
+    #     evaluate_pred = np.argmax(evaluate_pred, axis=1)
+    #     evaluate_true = np.argmax(evaluate_true, axis=1)
+    # else:
+    #     evaluate_pred = np.array(evaluate_pred).reshape(-1)
+    #     evaluate_true = np.array(evaluate_true).reshape(-1)
+    # print(len(evaluate_pred), len(evaluate_true))
+    # assert len(evaluate_pred) == len(evaluate_true)
     evaluate_df['Prediction'] = evaluate_pred
     evaluate_df['Actual'] = evaluate_df['label'].copy()
-    evaluate_df[f'manual Actual true'] = evaluate_true
+    # evaluate_df[f'manual Actual true'] = evaluate_true
     logger.debug('evaluate df after prediction\n%s', evaluate_df)
-    if not evaluate_df['Actual'].equals(evaluate_df[f'manual Actual true']):
-        logger.debug(evaluate_df[['Actual', f'manual Actual true']])
-        raise ValueError("the two different Actual values do not match...")
-    evaluate_df = evaluate_df.drop("manual Actual true", axis=1)
+    # if not evaluate_df['Actual'].equals(evaluate_df[f'manual Actual true']):
+    #     logger.debug(evaluate_df[['Actual', f'manual Actual true']])
+    #     diff = evaluate_df[evaluate_df['Actual'] != evaluate_df[f'manual Actual true']]
+    #     logger.debug('diff\n%s', diff)
+    #     raise ValueError("the two different Actual values do not match...")
+    # evaluate_df = evaluate_df.drop("manual Actual true", axis=1)
 
     if cfg.type_m == 'regression':
         beta, alpha, pearson_corr, rmse, nrmse, r2 = \
@@ -1341,7 +1448,7 @@ def main():
                 val_nr = 0
             test_nr += 1
 
-            modelcheckpoint_path = modelcheckpoint_p + f'chkpt_{model_name}.weights.h5'
+            modelcheckpoint_path = modelcheckpoint_p + f'chkpt_{model_name}.weights.keras'
             if os.path.exists(run_summary_splits_f):
                 run_summary_splits_df = pd.read_csv(run_summary_splits_f)
             else:
@@ -1360,7 +1467,7 @@ def main():
                     logger.info(labels_df['label'].value_counts())
                     logger.info(labels_df[label_name].value_counts())
 
-            print('cache')
+            # print('cache')
             # create cache path
             cache_p = os.path.join(cfg.tmp_p, 'cache', run_name, '')
             if cfg.verbose:
@@ -1375,7 +1482,7 @@ def main():
 
             # strategy scope from tf.distribute.MirroredStrategy(gpus) (cf. top of file) in TF2 is used for mutlti-gpu
             # usage
-            print('strategy')
+            # print('strategy')
             with strategy.scope():
                 # Everything that creates variables should be under the strategy scope.
                 # In general this is only model construction & `compile()`.
@@ -1385,7 +1492,7 @@ def main():
                                     cache_p, input_shape, cfg.channels, **augmentation_d)
 
                 # steps_per_epoch=False
-                print('model')
+                # print('model')
                 loss = cfg.loss()
                 metrics_l = []
                 for m in cfg.metrics_l:
@@ -1393,7 +1500,9 @@ def main():
                 # if cfg.type_m == 'categorical':
                 #     metrics_l.append(tfa.metrics.F1Score(num_classes=num_labels,
                 #                                          average='micro'))
+                
                 model = model_loader(num_labels, cfg.type_m, input_shape, **augmentation_d)
+                
                 # if cfg.load_model_weights:
                 #     logger.warning(f"This has not been adjusted to split stuff and only {model_name} will be"
                 #                   f"evaluated")
@@ -1407,27 +1516,73 @@ def main():
                 #                         add_params, scaler, label_d, model_names, test_df, {},
                 #                          add_name='_loded_model')
                 #     logger.debug('returned from create_vis')
+                
                 ###Define Parameters for run
                 optimizer = optimizer_loading()
                 callbacks_l = callback_loader(run_path, modelcheckpoint_path, metrics_l[0])
+                
+                # import numpy as np
+                # import tensorflow as tf
+                # from tensorflow.keras.applications import VGG19
+                # from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
+                # import time
+
+                # def create_model(model, neurons_l, type_m, out_classes, dropout=None):
+                #     x = model.output
+                #     x = GlobalAveragePooling2D()(x)
+                    
+                #     for neurons in neurons_l:
+                #         x = Dense(neurons, activation='relu')(x)
+                #         if dropout:
+                #             x = Dropout(dropout)(x)
+                    
+                #     if type_m == 'categorical':
+                #         out = Dense(out_classes, activation='softmax')(x)
+                #     elif type_m == 'regression':
+                #         out = Dense(1, kernel_initializer='normal')(x)
+
+                #     model = tf.keras.models.Model(inputs=model.input, outputs=out)
+                #     return model
+
+                # # Create base model
+                # base_model = VGG19(weights='imagenet', include_top=False, input_shape=(3, 100, 100))
+
+                # # Define parameters
+                # neurons_l = [1024, 512]
+                # type_m = 'regression'
+                # out_classes = 10  # Only relevant if type_m is 'categorical'
+                # dropout = 0.5
+
+                # # Create custom model
+                # model = create_model(base_model, neurons_l, type_m, out_classes, dropout)
+
+                # logger.debug('Model created with layers:')
+                # for layer in model.layers:
+                #     logger.debug(f"Layer {layer.name}: {layer.get_weights()}")
+
 
                 print('compiling')
                 model.compile(optimizer=optimizer, loss=loss, metrics=metrics_l)  # , run_eagerly=True)
-                # Load weights
-                # buggy - don't know why (works without by name for same amount of classes/regression
-                # if cfg.load_model_weights:
-                #     model = model.load_weights(cfg.load_model_weights)
-                #     print('loaded weights from', cfg.load_model_weights)
-                logger.debug('Final Model %s', type(model))
-                logger.debug(model.summary())
+                # Print model summary
+                model.summary()
 
-            ###Run Model
+                # Log input shapes
+                logger.info('steps per epoch (train/val/test) %s %s %s', steps_per_epoch_train, steps_per_epoch_val, steps_per_epoch_test)
+                logger.info('train shape %s', train_ds.element_spec)
+                logger.info('val shape %s', validation_ds.element_spec)
+
+                # # Test with a synthetic batch input
+                # test_input = np.random.rand(10, 3, 100, 100).astype(np.float32)
+                # # logger.debug("Test input data: %s", test_input)
+
+                # pred = model.predict_on_batch(test_input)
+                # print(test_input.shape)
+                # print("Test batch prediction shape:", pred.shape)
+                # print("Test batch prediction type:", type(pred))
+                # print("Test batch prediction:", pred)
+                
             t_begin = time.time()
-            logger.info('steps per epoch (train/val/test) %s %s %s',
-                        steps_per_epoch_train, steps_per_epoch_val, steps_per_epoch_test)
-            logger.info('train shape %s', train_ds.element_spec)
-            logger.info('val shape %s', validation_ds.element_spec)
-
+    
             try:
                 history = model.fit(
                     train_ds,
@@ -1470,7 +1625,7 @@ def main():
                 additional_reports_d = {'max epoch': len(history.history['val_loss']),
                                         'fit time': fit_time,
                                         'Time per epoch': fit_time / len(history.history['val_loss'])}
-            print('history')
+            # print('history')
             if history:
                 for metric in metrics_l:
                     mn = metric.name
@@ -1490,34 +1645,36 @@ def main():
             ###Evaluate model
             # Evaluate the model via the test dataset
             # (highest validation accuracy seems to always perform best)
-            print('load')
+            # print('load')
             if cfg.reload_best_weights_for_eval:
+                print(modelcheckpoint_path)
+                # with strategy.scope():
                 model.load_weights(modelcheckpoint_path)
-            print('save')
+            # print('save')
             # Save model
             model.save(os.path.join(run_path, f'Model_{model_name}.h5'))
 
-            if cfg.verbose:
-                logger.info("Evaluating on test data %s", test_ds)
+            # if cfg.verbose:
+            logger.info("Evaluating on test data %s", test_ds)
             test_history = model.evaluate(test_ds, steps=steps_per_epoch_test)
-            if cfg.verbose:
-                logger.info("test loss, test %s %s %s", metrics_l[0].name, ':', test_history)
+            # if cfg.verbose:
+            logger.info("test loss, test %s %s %s", metrics_l[0].name, ':', test_history)
             for nr, r in enumerate(test_history):
                 if nr == 0:
                     additional_reports_d['test_loss'] = r
                 additional_reports_d['test_' + metrics_l[nr - 1].name] = r
 
-            print('evaluate')
+            # print('evaluate')
             with strategy.scope():
                 additional_reports_d, sk_metrics_d, validation_f_df = \
                     evaluate_dataset(model, validation_ds, steps_per_epoch_val, run_path, label_mapping, add_params,
                                     scaler, label_d, model_name, validation_df, additional_reports_d,
                                     evaluate_mode='val')
-                print('evaluate2')
+                # print('evaluate2')
                 additional_reports_d, sk_metrics_d, test_f_df = \
                     evaluate_dataset(model, test_ds, steps_per_epoch_test, run_path, label_mapping, add_params,
                                     scaler, label_d, model_name, test_df, additional_reports_d, label_col_in=label_name)
-            print('evaluate finished')
+            # print('evaluate finished')
             val_dfs_l.append(validation_f_df)
             test_dfs_l.append(test_f_df)
             # write run_summary
@@ -1537,7 +1694,7 @@ def main():
                 run_summary_splits_df = report_df
             logger.debug('final split report\n%s', run_summary_splits_df)
             run_summary_splits_df.to_csv(run_summary_splits_f, index=False)
-            print('cleaning')
+            # print('cleaning')
             # Delete stuff
             del model, history, train_ds, validation_ds, test_ds, callbacks_l, metrics_l, loss, optimizer
         
